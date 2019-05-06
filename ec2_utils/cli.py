@@ -5,9 +5,11 @@ import inspect
 import locale
 import sys
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
-import instance_info
-import ec2_utils.ec2
-import ec2_utils.logs
+from ec2_utils.instance_info import InstanceInfo
+from ec2_utils import logs
+from ec2_utils import clients
+from ec2_utils.clients import is_ec2
+
 SYS_ENCODING = locale.getpreferredencoding()
 
 NoneType = type(None)
@@ -48,7 +50,7 @@ def get_region():
     """
     parser = get_parser()
     parser.parse_args()
-    print(instance_info.region())
+    print(clients.region())
 
 def get_account_id():
     """Get current account id. Either from instance metadata or current cli
@@ -114,6 +116,17 @@ def logs_to_cloudwatch():
     ec2.send_logs_to_cloudwatch(args.file, group=args.group,
                                      stream=args.stream)
 
+def instance_id():
+    """ Get id for instance
+    """
+    parser = get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        info = InstanceInfo()
+        print(info.instance_id())
+    else:
+        sys.exit(1)
 
 foo = """
    'pytail=ec2_utils.cli:read_and_follow',

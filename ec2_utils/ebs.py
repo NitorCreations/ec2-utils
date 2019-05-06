@@ -18,9 +18,9 @@ import argcomplete
 import boto3
 from botocore.exceptions import ClientError
 import psutil
-from ec2_utils.instance_info import set_region, resolve_account, InstanceInfo
+from ec2_utils.instance_info import resolve_account, InstanceInfo
 from ec2_utils.ec2 import find_include
-
+from ec2_utils.clients import ec2, ec2_resource
 
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5
@@ -116,7 +116,6 @@ def latest_snapshot():
 
 def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
                          size_gb=None, del_on_termination=True, tags=[], copytags=[]):
-    set_region()
     snapshot = get_latest_snapshot(tag_key, tag_value)
     if snapshot:
         print("Found snapshot " + snapshot.id)
@@ -220,9 +219,7 @@ def first_free_device():
 
 
 def attached_devices(volume_id=None):
-    set_region()
-    ec2 = boto3.client("ec2")
-    volumes = ec2.describe_volumes(Filters=[{"Name": "attachment.instance-id",
+    volumes = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id",
                                              "Values": [ InstanceInfo().instance_id() ]},
                                             {"Name": "attachment.status",
                                              "Values": [ "attached" ]}])
@@ -236,9 +233,7 @@ def attached_devices(volume_id=None):
 def get_latest_snapshot(tag_name, tag_value):
     """Get the latest snapshot with a given tag
     """
-    set_region()
-    ec2res = boto3.resource("ec2")
-    snapshots = sorted(ec2res.snapshots.filter(
+    snapshots = sorted(ec2_resource().snapshots.filter(
         Filters=[{'Name': 'tag:' + tag_name,
                   'Values': [tag_value]}]),
         key=lambda k: k.start_time, reverse=True)
@@ -249,8 +244,6 @@ def get_latest_snapshot(tag_name, tag_value):
 
 
 def create_volume(snapshot_id, availability_zone=None, size_gb=None):
-    set_region()
-    ec2 = boto3.client("ec2")
     args = {'SnapshotId': snapshot_id,
             'VolumeType': 'gp2'}
     if not availability_zone:
@@ -258,35 +251,31 @@ def create_volume(snapshot_id, availability_zone=None, size_gb=None):
     args['AvailabilityZone'] = availability_zone
     if size_gb:
         args['Size'] = size_gb
-    resp = ec2.create_volume(**args)
+    resp = ec2().create_volume(**args)
     wait_for_volume_status(resp['VolumeId'], "available")
     return resp['VolumeId']
 
 
 def create_empty_volume(size_gb, availability_zone=None):
-    set_region()
-    ec2 = boto3.client("ec2")
     args = {'Size': size_gb,
             'VolumeType': 'gp2'}
     if not availability_zone:
         availability_zone = InstanceInfo().availability_zone()
     args['AvailabilityZone'] = availability_zone
-    resp = ec2.create_volume(**args)
+    resp = ec2().create_volume(**args)
     wait_for_volume_status(resp['VolumeId'], "available")
     return resp['VolumeId']
 
 
 def wait_for_volume_status(volume_id, status, timeout_sec=300):
-    set_region()
     start = time.time()
-    ec2 = boto3.client("ec2")
     volume = None
     while not match_volume_state(volume, status):
         time.sleep(2)
         if time.time() - start > timeout_sec:
             raise Exception("Failed waiting for status '" + status + "' for " +
                             volume_id + " (timeout: " + str(timeout_sec) + ")")
-        resp = ec2.describe_volumes(VolumeIds=[volume_id])
+        resp = ec2().describe_volumes(VolumeIds=[volume_id])
         if "Volumes" in resp:
             volume = resp['Volumes'][0]
 
@@ -302,16 +291,14 @@ def match_volume_state(volume, status):
 
 
 def wait_for_snapshot_complete(snapshot_id, timeout_sec=900):
-    set_region()
     start = time.time()
-    ec2 = boto3.client("ec2")
     snapshot = None
     while not is_snapshot_complete(snapshot):
         time.sleep(2)
         if time.time() - start > timeout_sec:
             raise Exception("Failed waiting for status 'completed' for " +
                             snapshot_id + " (timeout: " + str(timeout_sec) + ")")
-        resp = ec2.describe_snapshots(SnapshotIds=[snapshot_id])
+        resp = ec2()snapshots(SnapshotIds=[snapshot_id])
         if "Snapshots" in resp:
             snapshot = resp['Snapshots'][0]
 
@@ -322,26 +309,21 @@ def is_snapshot_complete(snapshot):
 
 
 def attach_volume(volume_id, device_path):
-    set_region()
-    ec2 = boto3.client("ec2")
     instance_id = InstanceInfo().instance_id()
-    ec2.attach_volume(VolumeId=volume_id, InstanceId=instance_id,
+    ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id,
                       Device=device_path)
     wait_for_volume_status(volume_id, "attached")
 
 
 def delete_on_termination(device_path):
-    set_region()
-    ec2 = boto3.client("ec2")
     instance_id = InstanceInfo().instance_id()
-    ec2.modify_instance_attribute(InstanceId=instance_id,
-                                  BlockDeviceMappings=[{
+    ec2().modify_instance_attribute(InstanceId=instance_id,
+                                    BlockDeviceMappings=[{
                                       "DeviceName": device_path,
                                       "Ebs": {"DeleteOnTermination": True}}])
 
 
 def detach_volume(mount_path):
-    set_region()
     device = device_from_mount_path(mount_path)
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
@@ -353,24 +335,21 @@ def detach_volume(mount_path):
                     volume_id = volume_id.replace("vol", "vol-")
                 break
     else:
-        ec2 = boto3.client("ec2")
         instance_id = InstanceInfo().instance_id()
-        volume = ec2.describe_volumes(Filters=[{"Name": "attachment.device",
-                                                "Values": [device]},
-                                            {"Name": "attachment.instance-id",
-                                                "Values": [instance_id]}])
+        volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
+                                                  "Values": [device]},
+                                                 {"Name": "attachment.instance-id",
+                                                  "Values": [instance_id]}])
         volume_id = volume['Volumes'][0]['VolumeId']
-    ec2.detach_volume(VolumeId=volume_id, InstanceId=instance_id)
+    ec2().detach_volume(VolumeId=volume_id, InstanceId=instance_id)
 
 
 def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytags=[]):
-    set_region()
     create_tags = _create_tag_array(tag_key, tag_value, tags, copytags)
     device = device_from_mount_path(mount_path)
     with open(os.devnull, 'w') as devnull:
         subprocess.call(["sync", mount_path[0]], stdout=devnull,
                         stderr=devnull)
-    ec2 = boto3.client("ec2")
     volume_id = None
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
@@ -383,13 +362,13 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytag
                 break
     else:
         instance_id = InstanceInfo().instance_id()
-        volume = ec2.describe_volumes(Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}])
+        volume = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}])
         for volume in volume['Volumes']:
             if volume['Attachments'][0]['Device'] == device:
                 volume_id = volume['VolumeId']
     if volume_id:
-        snap = ec2.create_snapshot(VolumeId=volume_id)
-        ec2.create_tags(Resources=[snap['SnapshotId']], Tags=create_tags)
+        snap = ec2().create_snapshot(VolumeId=volume_id)
+        ec2().create_tags(Resources=[snap['SnapshotId']], Tags=create_tags)
     else:
         raise Exception("Could not find volume for " + mount_path + "(" + device + ")")
     if wait:
@@ -399,8 +378,7 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytag
 
 def tag_volume(volume, tag_key, tag_value, tags, copytags):
     tag_array = _create_tag_array(tag_key, tag_value, tags, copytags)
-    ec2 = boto3.client("ec2")
-    ec2.create_tags(Resources=[volume], Tags=tag_array)
+    ec2().create_tags(Resources=[volume], Tags=tag_array)
 
 
 def _create_tag_array(tag_key, tag_value, tags={}, copytags=[]):
@@ -452,12 +430,10 @@ def device_from_mount_path(mount_path):
 
 
 def clean_snapshots(days, tags):
-    set_region()
-    ec2 = boto3.client("ec2")
     account_id = resolve_account()
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
     newest_timestamp = newest_timestamp .replace(tzinfo=None)
-    paginator = ec2.get_paginator('describe_snapshots')
+    paginator = ec2().get_paginator('describe_snapshots')
     for page in paginator.paginate(OwnerIds=[account_id],
                                    Filters=[{'Name': 'tag-value',
                                              'Values': tags}],
@@ -475,7 +451,7 @@ def clean_snapshots(days, tags):
                                     print_time) +
                       " || " + json.dumps(tags))
                 try:
-                    ec2.delete_snapshot(SnapshotId=snapshot['SnapshotId'])
+                    ec2().delete_snapshot(SnapshotId=snapshot['SnapshotId'])
                     time.sleep(0.2)
                 except ClientError as err:
                     print(colored("Delete failed: " +

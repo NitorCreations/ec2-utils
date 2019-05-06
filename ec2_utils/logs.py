@@ -1,5 +1,6 @@
 from threading import Event, Lock, Thread
 from ec2_utils.instance_info import InstanceInfo, wait_net_service
+from ec2_utils.clients import logs
 
 class IntervalThread(Thread):
     def __init__(self, event, interval, call_function):
@@ -16,7 +17,7 @@ class LogSender(object):
     def __init__(self, file_name, group=None, stream=None):
         self._lock = Lock()
         self._send_lock = Lock()
-        self._logs = boto3.client('logs')
+        self._logs = logs()
         if group:
             self.group_name = group
         else:

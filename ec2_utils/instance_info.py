@@ -3,112 +3,26 @@ import os
 import sys
 import requests
 from requests.exceptions import ConnectionError
-from requests.adapters import HTTPAdapter
 import tempfile
 import time
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
-from urllib3.util.retry import Retry
+from ec2_utils.clients import ec2, sts, is_ec2, region, cloudformation, \
+    INSTANCE_IDENTITY_URL
+from ec2_utils.utils import get_retry, wait_net_service
 
 
-EC2 = None
-SESSION = None
 ACCOUNT_ID = None
 INSTANCE_DATA = tempfile.gettempdir() + os.sep + 'instance-data.json'
-INSTANCE_IDENTITY_URL = 'http://169.254.169.254/latest/dynamic/instance-identity/document'
 
 dthandler = lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else json.JSONEncoder().default(obj)
 
-def get_retry(url, retries=5, backoff_factor=0.3,
-              status_forcelist=(500, 502, 504), session=None, timeout=5):
-    session = session or requests.Session()
-    retry = Retry(
-        total=retries,
-        read=retries,
-        connect=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=status_forcelist,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
-    return session.get(url, timeout=5)
-
-def read_if_readable(filename):
-    try:
-        if os.path.isfile(filename):
-            with open(filename) as read_file:
-                return read_file.read()
-        else:
-            return ""
-    except:
-        return ""
-
-def wait_net_service(server, port, timeout=None):
-    """ Wait for network service to appear
-        @param timeout: in seconds, if None or 0 wait forever
-        @return: True of False, if timeout is None may return only True or
-                 throw unhandled network exception
-    """
-    import socket
-    import errno
-    s = socket.socket()
-    if sys.version < "3":
-        # Just make this something that will not be throwns since python 2
-        # just has socket.error
-        ConnectionRefusedError = EndpointConnectionError
-    if timeout:
-        from time import time as now
-        # time module is needed to calc timeout shared between two exceptions
-        end = now() + timeout
-    while True:
-        try:
-            if timeout:
-                next_timeout = end - now()
-                if next_timeout < 0:
-                    return False
-                else:
-                    s.settimeout(next_timeout)
-            s.connect((server, port))
-        except socket.timeout as err:
-            # this exception occurs only if timeout is set
-            if timeout:
-                return False
-        except ConnectionRefusedError:
-            s.close()
-            return False
-        except socket.error as err:
-            # catch timeout exception from underlying network library
-            # this one is different from socket.timeout
-            if not isinstance(err.args, tuple) or err[0] != errno.ETIMEDOUT or err[0] != errno.ECONNREFUSED:
-                raise
-            elif err[0] == errno.ECONNREFUSED:
-                s.close()
-                return False
-        else:
-            s.close()
-            return True
-
-def ec2():
-    global EC2
-    if not EC2:
-        # region() has one benefit over default resolving - defaults to
-        # ec2 instance region if on ec2 and otherwise unset
-        EC2 = session().client("ec2", region_name=region()) 
-    return EC2
-
-def session():
-    global SESSION
-    if not SESSION:
-        SESSION = boto3.session.Session()
-    return SESSION
 
 def resolve_account():
     global ACCOUNT_ID
     if not ACCOUNT_ID:
         try:
-            sts = session().client("sts", region_name=region())
-            ACCOUNT_ID = sts.get_caller_identity()['Account']
+            ACCOUNT_ID = sts().get_caller_identity()['Account']
         except BaseException:
             pass
     return ACCOUNT_ID
@@ -121,24 +35,6 @@ def set_region():
     if 'AWS_DEFAULT_REGION' not in os.environ:
         os.environ['AWS_DEFAULT_REGION'] = region()
 
-def region():
-    """ Get default region - the region of the instance if run in an EC2 instance
-    """
-    # If it is set in the environment variable, use that
-    if 'AWS_DEFAULT_REGION' in os.environ:
-        return os.environ['AWS_DEFAULT_REGION']
-    else:
-        # Otherwise it might be configured in AWS credentials
-        if session().region_name:
-            return session().region_name
-        # If not configured and being called from an ec2 instance, use the
-        # region of the instance
-        elif is_ec2():
-            info = InstanceInfo()
-            return info.region()
-        # Otherwise default to Ireland
-        else:
-            return 'eu-west-1'
 
 def get_userdata(outfile):
     response = get_retry(USER_DATA_URL)
@@ -148,34 +44,6 @@ def get_userdata(outfile):
         with open(outfile, 'w') as outf:
             outf.write(response.text)
 
-def is_ec2():
-    if sys.platform.startswith("win"):
-        import wmi
-        systeminfo = wmi.WMI().Win32_ComputerSystem()[0]
-        return "EC2" == systeminfo.PrimaryOwnerName
-    elif sys.platform.startswith("linux"):
-        if read_if_readable("/sys/hypervisor/uuid").startswith("ec2"):
-            return True
-        elif read_if_readable("/sys/class/dmi/id/product_uuid").startswith("EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/board_vendor").startswith("Amazon EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/sys_vendor").startswith("Amazon EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/sys_vendor").startswith("Amazon EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/bios_vendor").startswith("Amazon EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/chassis_vendor").startswith("Amazon EC2"):
-            return True
-        elif read_if_readable("/sys/devices/virtual/dmi/id/chassis_asset_tag").startswith("Amazon EC2"):
-            return True
-        elif "AmazonEC2" in read_if_readable("/sys/devices/virtual/dmi/id/modalias"):
-            return True 
-        elif "AmazonEC2" in read_if_readable("/sys/devices/virtual/dmi/id/uevent"):
-            return True
-        else:
-            return False
 
 class InstanceInfo(object):
     """ A class to get the relevant metadata for an instance running in EC2
@@ -338,13 +206,12 @@ class InstanceInfo(object):
 def stack_params_and_outputs_and_stack(regn, stack_name):
     """ Get parameters and outputs from a stack as a single dict and the full stack
     """
-    cloudformation = boto3.client("cloudformation", region_name=regn)
     retry = 0
     stack = {}
     resources = {}
     while not stack and retry < 10:
         try:
-            stack = cloudformation.describe_stacks(StackName=stack_name)
+            stack = cloudformation().describe_stacks(StackName=stack_name)
             stack = stack['Stacks'][0]
         except (ConnectionError, EndpointConnectionError):
             retry = retry + 1
