@@ -31,7 +31,7 @@ if [ "$_ARGCOMPLETE" ]; then
 fi
 
 usage() {
-  echo "usage: mount-and-format.sh [-h] blk-device mount-path" >&2
+  echo "usage: $0 [-h] blk-device mount-path" >&2
   echo "" >&2
   echo "Mounts a local block device as an encrypted volume. Handy for things like local database installs."
   echo "" >&2

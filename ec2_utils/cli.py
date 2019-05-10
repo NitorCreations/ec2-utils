@@ -128,8 +128,40 @@ def instance_id():
     else:
         sys.exit(1)
 
+def prune_snapshots():
+    """ Prune snapshots to have a specified amout of daily, weekly, monthly
+    and yearly snapshots
+    """
+    parser = get_parser()
+	parser.add_argument('-v', '--volume-id', type=str,
+	                    help='EBS Volume ID, if wanted for only one volume')
+	parser.add_argument('-n', '--tag-name', type=str,
+	                    help='Snapshot tag name')
+	parser.add_argument('-t', '--tag-value', type=str,
+	                    help='Snapshot tag value', nargs='*')
+
+	parser.add_argument('-t', '--ten-minutely', type=int,
+	                    help='Number of ten minutely snapshots to keep')
+	parser.add_argument('-h', '--hourly', type=int,
+	                    help='Number of hourly snapshots to keep')
+	parser.add_argument('-d', '--daily', type=int,
+	                    help='Number of daily snapshots to keep')
+	parser.add_argument('-w', '--weekly', type=int,
+	                    help='Number of weekly snapshots to keep')
+	parser.add_argument('-m', '--monthly', type=int,
+	                    help='Number of monthly snapshots to keep')
+	parser.add_argument('-y', '--yearly', type=int,
+	                    help='Number of yearly snapshots to keep')
+
+	parser.add_argument('-r', '--dry-run', action='store_true',
+	                    help='Dry run - print actions that would be taken')
+
+    argcomplete.autocomplete(parser)
+	args = parser.parse_args()
+    ebs.prune_snapshots(**args)
+
 foo = """
-   'pytail=ec2_utils.cli:read_and_follow',
+    'pytail=ec2_utils.cli:read_and_follow',
     'account-id=ec2_utils.cli:get_account_id',
     'cf-logical-id=ec2_utils.cli:logical_id',
     'cf-region=ec2_utils.cli:cf_region',

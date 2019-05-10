@@ -13,11 +13,13 @@ from subprocess import PIPE, Popen, CalledProcessError
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 from termcolor import colored
 import argcomplete
 import boto3
 from botocore.exceptions import ClientError
 import psutil
+from retry import retry
 from ec2_utils.instance_info import resolve_account, InstanceInfo
 from ec2_utils.ec2 import find_include
 from ec2_utils.clients import ec2, ec2_resource
@@ -298,7 +300,7 @@ def wait_for_snapshot_complete(snapshot_id, timeout_sec=900):
         if time.time() - start > timeout_sec:
             raise Exception("Failed waiting for status 'completed' for " +
                             snapshot_id + " (timeout: " + str(timeout_sec) + ")")
-        resp = ec2()snapshots(SnapshotIds=[snapshot_id])
+        resp = ec2().snapshots(SnapshotIds=[snapshot_id])
         if "Snapshots" in resp:
             snapshot = resp['Snapshots'][0]
 
@@ -429,36 +431,162 @@ def device_from_mount_path(mount_path):
                 if x.mountpoint == mount_path][0].device
 
 
-def clean_snapshots(days, tags):
+def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
+    if tag_value and not isinstance(tag_value, list):
+        tag_value = [tag_value]
+    filters =  [{ 'Name': 'status', 'Values': [ 'completed' ]}]
+    if volume_id:
+        filters.append({ 'Name': 'volume-id', 'Values': [volume_id] })
+    if tag_name and tag_value:
+        filters.append({ 'Name': 'tag:' + args.tag_name, 'Values': tag_value })
+    elif tag_name:
+        filters.append({ 'Name': 'tag-key', 'Values': [ args.tag_value ]})
+    elif tag_value:
+        filters.append({ 'Name': 'tag-value', 'Values': tag_value})
+    return filters
+
+def clean_snapshots(days, tags, dry_run=False):
     account_id = resolve_account()
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
-    newest_timestamp = newest_timestamp .replace(tzinfo=None)
-    paginator = ec2().get_paginator('describe_snapshots')
-    for page in paginator.paginate(OwnerIds=[account_id],
-                                   Filters=[{'Name': 'tag-value',
-                                             'Values': tags}],
-                                   PaginationConfig={'PageSize': 1000}):
-        for snapshot in page['Snapshots']:
-            tags = {}
-            for tag in snapshot['Tags']:
-                tags[tag['Key']] = tag['Value']
-            print_time = snapshot['StartTime'].replace(tzinfo=tz.tzlocal()).timetuple()
-            compare_time = snapshot['StartTime'].replace(tzinfo=None)
-            if compare_time < newest_timestamp:
-                print(colored("Deleting " + snapshot['SnapshotId'], "yellow") +
-                      " || " +
-                      time.strftime("%a, %d %b %Y %H:%M:%S",
-                                    print_time) +
-                      " || " + json.dumps(tags))
-                try:
-                    ec2().delete_snapshot(SnapshotId=snapshot['SnapshotId'])
-                    time.sleep(0.2)
-                except ClientError as err:
-                    print(colored("Delete failed: " +
-                                  err.response['Error']['Message'], "red"))
-            else:
-                print(colored("Skipping " + snapshot['SnapshotId'], "cyan") +
-                      " || " +
-                      time.strftime("%a, %d %b %Y %H:%M:%S",
-                                    print_time) +
-                      " || " + json.dumps(tags))
+    newest_timestamp = newest_timestamp .replace(tzinfo=tz.UTC)
+    filters = snapshot_filters(tag_value=tags)
+    ec2_res = ec2_resource()
+    for snapshot in ec2_res.snapshots.filter(Filters=filters):
+        tags = {}
+        for tag in snapshot.tags:
+            tags[tag['Key']] = tag['Value']
+        print_time = snapshot.start_time.replace(tzinfo=tz.tzlocal()).timetuple()
+        compare_time = snapshot.start_time.replace(tzinfo=tz.UTC)
+        if compare_time < newest_timestamp:
+            print(colored("Deleting " + snapshot.id, "yellow") +
+                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S", print_time) +
+                  " || " + json.dumps(tags))
+            try:
+                if not dry_run:
+                    delete_snapshot(snapshot)
+                    time.sleep(0.3)
+            except ClientError as err:
+                print(colored("Delete failed: " +
+                              err.response['Error']['Message'], "red"))
+        else:
+            print(colored("Skipping " + snapshot['SnapshotId'], "cyan") +
+                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S", print_time) +
+                  " || " + json.dumps(tags))
+
+
+# By default: 2 days of ten minutely, 7 days of hourly, 30 days of daily
+# ~3 months of weekly, 6 months of monthly and 3 years of yearly
+# 6*24*2 + 24*(7-2) + 30- 7+ + 6-1 + 2 = 438 snapshots
+def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
+                    ten_minutely=288, hourly=168, daily=30,
+                    weekly=13, monthly=6, yearly=3, dry_run=False):
+    ec2_res = ec2_resource()
+
+    filters = snapshot_filters(volume_id=volume_id, tag_name=tag_name,
+                               tag_value=tag_value)
+
+    snapshots = sorted([s for s in ec2_res.snapshots.filter(Filters=filters)],
+                       key=lambda s: s.start_time, reverse=True)
+    keep, snapshots_to_delete = prune_array(snapshots,
+	                                        lambda snapshot: snapshot.start_time,
+	                                        lambda snapshot: snapshot.volume_id,
+	                                        ten_minutely=ten_minutely,
+	                                        hourly=hourly,
+	                                        daily=daily,
+	                                        weekly=weekly,
+	                                        yearly=yearly)
+
+    has_deleted = False
+    for snapshot in snapshots:
+        print(snapshot.id)
+        if snapshot in keep:
+            print(colored("Skipping " + snapshot.id, "cyan") +
+                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
+                  snapshot.start_time.timetuple()) +
+                  " || " + json.dumps(snapshot.tags))
+        else:
+            print(colored("Deleting " + snapshot.id, "yellow") +
+                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
+                  snapshot.start_time.timetuple()) +
+                  " || " + json.dumps(snapshot.tags))
+            has_deleted = True
+            try:
+                if not dry_run:
+                    delete_snapshot(snapshot)
+                    time.sleep(0.3)
+            except ClientError as err:
+                print(colored("Delete failed: " +
+                              err.response['Error']['Message'], "red"))
+    if not has_deleted:
+        print(colored("No snapshots to delete", "green"))
+
+
+def prune_array(prunable, time_func, group_by_func, ten_minutely=None,
+                hourly=None, daily=None, weekly=None, monthly=None, yearly=None,
+                dry_run=False): 
+    
+    objects = sorted([obj for obj in prunable], key=time_func)
+    keep = set()
+    now = datetime.now(tz.UTC)
+
+    if ten_minutely:
+        select_kept(keep, objects, time_func, group_by_func, start_of_ten_minutes,
+                    now - relativedelta(minutes = ten_minutely * 10), now)
+    if hourly:
+        select_kept(keep, objects, time_func, group_by_func, start_of_hour,
+                    now - relativedelta(hours = hourly), now)
+    if daily:
+        select_kept(keep, objects, time_func, group_by_func, start_of_day,
+                    now - relativedelta(days = daily), now)
+    if weekly:
+        select_kept(keep, objects, time_func, group_by_func, start_of_week,
+                    now - relativedelta(weeks = weekly), now)
+    if monthly:
+        select_kept(keep, objects, time_func, group_by_func, start_of_month,
+                    now - relativedelta(months = monthly), now)
+    if yearly:
+        select_kept(keep, objects, time_func, group_by_func, start_of_year,
+                    now - relativedelta(years = yearly), now)
+    
+    delete = sorted(set(objects) - keep, key=time_func)
+    return keep, delete
+    
+
+@retry(ClientError, tries=5, delay=1, backoff=3)
+def delete_snapshot(snapshot):
+    snapshot.delete()
+    
+
+def start_of_ten_minutes(date):
+    return date.replace(second=0, microsecond=0) - timedelta(minutes=date.minute % 10)
+
+def start_of_hour(date):
+	return date.replace(minute=0, second=0, microsecond=0)
+
+def start_of_day(date):
+	return date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+def start_of_week(date):
+	return date.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days = date.weekday())
+
+def start_of_month(date):
+	return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+def start_of_year(date):
+	return date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+def select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
+	groups = {}
+	prev = None
+	for obj in obects:
+		obj_time = time_func(obj)
+		obj_group = group_by_func(obj)
+		if obj_group not in groups:
+		    groups[obj_group] = {"curr": None, "prev": None}
+		groups[obj_group]["curr"] = start_func(obj_time)
+		if groups[obj_group]["curr"] != groups[obj_group]["prev"] \
+		   and (obj_time > end or end > now):
+			keep.add(obj)
+		groups[obj_group]["prev"] = groups[obj_group]["curr"]
+        if obj_time < end:
+            return
