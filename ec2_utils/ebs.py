@@ -19,11 +19,10 @@ import argcomplete
 import boto3
 from botocore.exceptions import ClientError
 import psutil
-from retry import retry
-from ec2_utils.instance_info import resolve_account, InstanceInfo
-from ec2_utils.ec2 import find_include
 from ec2_utils.clients import ec2, ec2_resource
-
+from ec2_utils.ec2 import find_include
+from ec2_utils.instance_info import resolve_account, prune_array, info
+from ec2_utils.utils import delete_selected
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5
 
@@ -222,7 +221,7 @@ def first_free_device():
 
 def attached_devices(volume_id=None):
     volumes = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id",
-                                             "Values": [ InstanceInfo().instance_id() ]},
+                                             "Values": [ info().instance_id() ]},
                                             {"Name": "attachment.status",
                                              "Values": [ "attached" ]}])
     ret = []
@@ -249,7 +248,7 @@ def create_volume(snapshot_id, availability_zone=None, size_gb=None):
     args = {'SnapshotId': snapshot_id,
             'VolumeType': 'gp2'}
     if not availability_zone:
-        availability_zone = InstanceInfo().availability_zone()
+        availability_zone = info().availability_zone()
     args['AvailabilityZone'] = availability_zone
     if size_gb:
         args['Size'] = size_gb
@@ -262,7 +261,7 @@ def create_empty_volume(size_gb, availability_zone=None):
     args = {'Size': size_gb,
             'VolumeType': 'gp2'}
     if not availability_zone:
-        availability_zone = InstanceInfo().availability_zone()
+        availability_zone = info().availability_zone()
     args['AvailabilityZone'] = availability_zone
     resp = ec2().create_volume(**args)
     wait_for_volume_status(resp['VolumeId'], "available")
@@ -311,14 +310,14 @@ def is_snapshot_complete(snapshot):
 
 
 def attach_volume(volume_id, device_path):
-    instance_id = InstanceInfo().instance_id()
+    instance_id = info().instance_id()
     ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id,
                       Device=device_path)
     wait_for_volume_status(volume_id, "attached")
 
 
 def delete_on_termination(device_path):
-    instance_id = InstanceInfo().instance_id()
+    instance_id = info().instance_id()
     ec2().modify_instance_attribute(InstanceId=instance_id,
                                     BlockDeviceMappings=[{
                                       "DeviceName": device_path,
@@ -337,7 +336,7 @@ def detach_volume(mount_path):
                     volume_id = volume_id.replace("vol", "vol-")
                 break
     else:
-        instance_id = InstanceInfo().instance_id()
+        instance_id = info().instance_id()
         volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
                                                   "Values": [device]},
                                                  {"Name": "attachment.instance-id",
@@ -363,7 +362,7 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytag
                     volume_id = volume_id.replace("vol", "vol-")
                 break
     else:
-        instance_id = InstanceInfo().instance_id()
+        instance_id = info().instance_id()
         volume = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}])
         for volume in volume['Volumes']:
             if volume['Attachments'][0]['Device'] == device:
@@ -385,9 +384,8 @@ def tag_volume(volume, tag_key, tag_value, tags, copytags):
 
 def _create_tag_array(tag_key, tag_value, tags={}, copytags=[]):
     if copytags:
-        info = InstanceInfo()
         for tag in copytags:
-            tags[tag] = info.tag(tag)
+            tags[tag] = info().tag(tag)
     create_tags = []
     if not tags:
         tags = {}
@@ -432,15 +430,18 @@ def device_from_mount_path(mount_path):
 
 
 def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
+    if tag_name and not isinstance(tag_name, list):
+        tag_name = [tag_name]
     if tag_value and not isinstance(tag_value, list):
         tag_value = [tag_value]
+    
     filters =  [{ 'Name': 'status', 'Values': [ 'completed' ]}]
     if volume_id:
         filters.append({ 'Name': 'volume-id', 'Values': [volume_id] })
     if tag_name and tag_value:
-        filters.append({ 'Name': 'tag:' + args.tag_name, 'Values': tag_value })
+        filters.append({ 'Name': 'tag:' + tag_name[0], 'Values': tag_value })
     elif tag_name:
-        filters.append({ 'Name': 'tag-key', 'Values': [ args.tag_value ]})
+        filters.append({ 'Name': 'tag-key', 'Values': tag_name})
     elif tag_value:
         filters.append({ 'Name': 'tag-value', 'Values': tag_value})
     return filters
@@ -463,7 +464,7 @@ def clean_snapshots(days, tags, dry_run=False):
                   " || " + json.dumps(tags))
             try:
                 if not dry_run:
-                    delete_snapshot(snapshot)
+                    delete_object(snapshot)
                     time.sleep(0.3)
             except ClientError as err:
                 print(colored("Delete failed: " +
@@ -484,109 +485,17 @@ def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
 
     filters = snapshot_filters(volume_id=volume_id, tag_name=tag_name,
                                tag_value=tag_value)
-
+    time_func = lambda snapshot: snapshot.start_time
     snapshots = sorted([s for s in ec2_res.snapshots.filter(Filters=filters)],
-                       key=lambda s: s.start_time, reverse=True)
+                        key=time_func, reverse=True)
     keep, snapshots_to_delete = prune_array(snapshots,
-	                                        lambda snapshot: snapshot.start_time,
-	                                        lambda snapshot: snapshot.volume_id,
-	                                        ten_minutely=ten_minutely,
-	                                        hourly=hourly,
-	                                        daily=daily,
-	                                        weekly=weekly,
-	                                        yearly=yearly)
-
-    has_deleted = False
-    for snapshot in snapshots:
-        print(snapshot.id)
-        if snapshot in keep:
-            print(colored("Skipping " + snapshot.id, "cyan") +
-                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
-                  snapshot.start_time.timetuple()) +
-                  " || " + json.dumps(snapshot.tags))
-        else:
-            print(colored("Deleting " + snapshot.id, "yellow") +
-                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
-                  snapshot.start_time.timetuple()) +
-                  " || " + json.dumps(snapshot.tags))
-            has_deleted = True
-            try:
-                if not dry_run:
-                    delete_snapshot(snapshot)
-                    time.sleep(0.3)
-            except ClientError as err:
-                print(colored("Delete failed: " +
-                              err.response['Error']['Message'], "red"))
-    if not has_deleted:
-        print(colored("No snapshots to delete", "green"))
-
-
-def prune_array(prunable, time_func, group_by_func, ten_minutely=None,
-                hourly=None, daily=None, weekly=None, monthly=None, yearly=None,
-                dry_run=False): 
-    
-    objects = sorted([obj for obj in prunable], key=time_func)
-    keep = set()
-    now = datetime.now(tz.UTC)
-
-    if ten_minutely:
-        select_kept(keep, objects, time_func, group_by_func, start_of_ten_minutes,
-                    now - relativedelta(minutes = ten_minutely * 10), now)
-    if hourly:
-        select_kept(keep, objects, time_func, group_by_func, start_of_hour,
-                    now - relativedelta(hours = hourly), now)
-    if daily:
-        select_kept(keep, objects, time_func, group_by_func, start_of_day,
-                    now - relativedelta(days = daily), now)
-    if weekly:
-        select_kept(keep, objects, time_func, group_by_func, start_of_week,
-                    now - relativedelta(weeks = weekly), now)
-    if monthly:
-        select_kept(keep, objects, time_func, group_by_func, start_of_month,
-                    now - relativedelta(months = monthly), now)
-    if yearly:
-        select_kept(keep, objects, time_func, group_by_func, start_of_year,
-                    now - relativedelta(years = yearly), now)
-    
-    delete = sorted(set(objects) - keep, key=time_func)
-    return keep, delete
-    
-
-@retry(ClientError, tries=5, delay=1, backoff=3)
-def delete_snapshot(snapshot):
-    snapshot.delete()
-    
-
-def start_of_ten_minutes(date):
-    return date.replace(second=0, microsecond=0) - timedelta(minutes=date.minute % 10)
-
-def start_of_hour(date):
-	return date.replace(minute=0, second=0, microsecond=0)
-
-def start_of_day(date):
-	return date.replace(hour=0, minute=0, second=0, microsecond=0)
-
-def start_of_week(date):
-	return date.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days = date.weekday())
-
-def start_of_month(date):
-	return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-def start_of_year(date):
-	return date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-
-def select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
-	groups = {}
-	prev = None
-	for obj in obects:
-		obj_time = time_func(obj)
-		obj_group = group_by_func(obj)
-		if obj_group not in groups:
-		    groups[obj_group] = {"curr": None, "prev": None}
-		groups[obj_group]["curr"] = start_func(obj_time)
-		if groups[obj_group]["curr"] != groups[obj_group]["prev"] \
-		   and (obj_time > end or end > now):
-			keep.add(obj)
-		groups[obj_group]["prev"] = groups[obj_group]["curr"]
-        if obj_time < end:
-            return
+                                            time_func,
+                                            lambda snapshot: snapshot.volume_id,
+                                            ten_minutely=ten_minutely,
+                                            hourly=hourly,
+                                            daily=daily,
+                                            weekly=weekly,
+                                            yearly=yearly)
+    delete_selected(snapshots, snapshots_to_delete,
+                    lambda s: s.id + " " + s.tags["Name"] if "Name" in s.tags else s.id,
+                    time_func, dry_run=dry_run)

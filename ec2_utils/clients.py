@@ -42,6 +42,12 @@ def cloudformation():
 def ec2_resource():
     return get_resource()
 
+def s3():
+    return get_client()
+
+def s3_resource():
+    return get_resource()
+
 def session():
     if not hasattr(CLIENTS, 'session'):
         CLIENTS.session = boto3.session.Session()

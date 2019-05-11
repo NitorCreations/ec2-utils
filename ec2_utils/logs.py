@@ -1,6 +1,7 @@
 from threading import Event, Lock, Thread
-from ec2_utils.instance_info import InstanceInfo, wait_net_service
 from ec2_utils.clients import logs
+from ec2_utils.instance_info import info, wait_net_service
+from retry import retry
 
 class IntervalThread(Thread):
     def __init__(self, event, interval, call_function):
@@ -38,7 +39,7 @@ class LogSender(object):
         except BaseException:
             pass
         self.token = None
-        self.send(str(InstanceInfo()))
+        self.send(str(info()))
         self._do_send()
         self._stop_flag = Event()
         self._thread = IntervalThread(self._stop_flag, 2, self._do_send)
@@ -79,51 +80,54 @@ class LogSender(object):
             return
         try:
             self._send_lock.acquire()
-            if not self.token:
-                stream_desc = self._logs.describe_log_streams(logGroupName=self.group_name,
-                                                              logStreamNamePrefix=self.stream_name)
-                if 'uploadSequenceToken' in stream_desc['logStreams'][0]:
-                    self.token = stream_desc['logStreams'][0]['uploadSequenceToken']
-            if self.token:
-                log_response = self._logs.put_log_events(logGroupName=self.group_name,
-                                                         logStreamName=self.stream_name,
-                                                         logEvents=events,
-                                                         sequenceToken=self.token)
-            else:
-                log_response = self._logs.put_log_events(logGroupName=self.group_name,
-                                                         logStreamName=self.stream_name,
-                                                         logEvents=events)
-            if 'CLOUDWATCH_LOG_DEBUG' in os.environ:
-                print("Sent " + str(len(events)) + " messages to " + self.stream_name)
-            self.token = log_response['nextSequenceToken']
-        except ClientError:
+            self._put_log_events(events)
+        except:
             self.token = None
             for event in events:
                 self.send(event['message'].encode('utf-8', 'replace'))
         finally:
             self._send_lock.release()
 
+    @retry(tries=5, delay=1, backoff=2)
+    def _put_log_events(self, events):
+        if not self.token:
+            stream_desc = self._logs.describe_log_streams(logGroupName=self.group_name,
+                                                          logStreamNamePrefix=self.stream_name)
+            if 'uploadSequenceToken' in stream_desc['logStreams'][0]:
+                self.token = stream_desc['logStreams'][0]['uploadSequenceToken']
+        if self.token:
+            log_response = self._logs.put_log_events(logGroupName=self.group_name,
+                                                     logStreamName=self.stream_name,
+                                                     logEvents=events,
+                                                     sequenceToken=self.token)
+        else:
+            log_response = self._logs.put_log_events(logGroupName=self.group_name,
+                                                     logStreamName=self.stream_name,
+                                                     logEvents=events)
+        if 'CLOUDWATCH_LOG_DEBUG' in os.environ:
+            print("Sent " + str(len(events)) + " messages to " + self.stream_name)
+        if log_response and 'nextSequenceToken' in log_response:
+            self.token = log_response['nextSequenceToken']
+        else:
+            self.token = None
 
 def send_log_to_cloudwatch(file_name, group=None, stream=None):
     log_sender = LogSender(file_name, group=group, stream=stream)
     read_and_follow(file_name, log_sender.send)
 
+@retry(tries=10, delay=1, backoff=3)
 def resolve_stack_name():
-    info = InstanceInfo()
-    stack_name = info.stack_name()
-    while not stack_name:
-        time.sleep(1)
-        info.clear_cache()
-        stack_name = info.stack_name()
+    stack_name = info().stack_name()
+    if not stack_name:
+        info().clear_cache()
+        raise Exception("Failed to resolve stack name")
 
+@retry(tries=10, delay=1, backoff=3)
 def resolve_instance_id():
-    info = InstanceInfo()
-    instance_id = info.instance_id()
-    while not instance_id:
-        time.sleep(1)
-        info.clear_cache()
-        instance_id = info.instance_id()
-    
+    instance_id = info().instance_id()
+    if not instance_id:
+        info().clear_cache()
+        raise Exception("Failed to resolve instance id")
 
 def read_and_follow(file_name, line_function, wait=1):
     while not (os.path.isfile(file_name) and os.path.exists(file_name)):

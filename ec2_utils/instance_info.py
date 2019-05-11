@@ -14,9 +14,16 @@ from ec2_utils.utils import get_retry, wait_net_service
 
 ACCOUNT_ID = None
 INSTANCE_DATA = tempfile.gettempdir() + os.sep + 'instance-data.json'
+INFO = None
 
 dthandler = lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else json.JSONEncoder().default(obj)
 
+def info():
+    global INFO
+    if not INFO:
+        INFO = InstanceInfo()
+    return INFO
+        
 
 def resolve_account():
     global ACCOUNT_ID
@@ -248,3 +255,13 @@ def stack_params_and_outputs_and_stack(regn, stack_name):
         for output in stack['Outputs']:
             resp[output['OutputKey']] = output['OutputValue']
     return resp, stack
+
+def signal_status(status, resource_name=None):
+    if not resource_name:
+        resource_name = info().logical_id()
+    print("Signalling " + status + " for " + info().stack_name() + "." \
+          + resource_name)
+    cloudformation().signal_resource(StackName=info.stack_name(),
+                                     LogicalResourceId=resource_name,
+                                     UniqueId=info().instance_id(),
+                                     Status=status)
