@@ -48,6 +48,9 @@ def s3():
 def s3_resource():
     return get_resource()
 
+def route53():
+    return get_resource()
+
 def session():
     if not hasattr(CLIENTS, 'session'):
         CLIENTS.session = boto3.session.Session()

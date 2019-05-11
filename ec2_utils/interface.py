@@ -1,4 +1,4 @@
-from ec2_utils.clients import ec2
+from ec2_utils.clients import ec2, route53
 from ec2_utils.instance_info import info
 
 def associate_eip(eip=None, allocation_id=None, eip_param=None,
@@ -28,4 +28,35 @@ def associate_eip(eip=None, allocation_id=None, eip_param=None,
                             AllocationId=allocation_id,
                             AllowReassociation=True)
 
-
+def register_private_dns(dns_name, hosted_zone, ttl=None):
+    if not ttl:
+        ttl=60
+    else:
+        ttl=int(ttl)
+    zone_id = None
+    zone_paginator = route53().get_paginator("list_hosted_zones")
+    for page in zone_paginator.paginate():
+        for zone in page.get("HostedZones", []):
+            if zone["Name"] == hosted_zone:
+                zone_id = zone['Id']
+                break
+        if zone_id:
+            break
+    if not zone_id:
+        raise Exception("Failed to get zone id for zone " + hosted_zone)
+    route53().change_resource_record_sets(HostedZoneId=zone_id, ChangeBatch={
+        "Changes": [
+            {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                    "Name": dns_name,
+                    "Type": "A",
+                    "TTL": ttl,
+                    "ResourceRecords": [
+                        {
+                            "Value": info().private_ip()
+                        }
+                    ]
+                }
+            }
+        ]})

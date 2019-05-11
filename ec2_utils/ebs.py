@@ -100,21 +100,6 @@ def disk_by_drive_letter(drive_letter):
     return ret
 
 
-def latest_snapshot():
-    """Get the latest snapshot with a given tag
-    """
-    parser = argparse.ArgumentParser(description=latest_snapshot.__doc__)
-    parser.add_argument("tag", help="The tag to find snapshots with")
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args()
-    print(first_free_device())
-    snapshot = get_latest_snapshot(args.tag, args.tag)
-    if snapshot:
-        print(snapshot.id)
-    else:
-        sys.exit(1)
-
-
 def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
                          size_gb=None, del_on_termination=True, tags=[], copytags=[]):
     snapshot = get_latest_snapshot(tag_key, tag_value)

@@ -210,7 +210,7 @@ class InstanceInfo(object):
     def __str__(self):
         return json.dumps(self._info, skipkeys=True)
 
-def stack_params_and_outputs_and_stack(regn, stack_name):
+def stack_params_and_outputs_and_stack(stack_name):
     """ Get parameters and outputs from a stack as a single dict and the full stack
     """
     retry = 0
@@ -231,7 +231,7 @@ def stack_params_and_outputs_and_stack(regn, stack_name):
     retry = 0
     while not resources and retry < 3:
         try:
-            resources = cloudformation.describe_stack_resources(StackName=stack_name)
+            resources = cloudformation().describe_stack_resources(StackName=stack_name)
         except ClientError:
             break
         except (ConnectionError, EndpointConnectionError):
