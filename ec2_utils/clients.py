@@ -39,6 +39,9 @@ def logs():
 def cloudformation():
     return get_client()
 
+def cloudformation_resource():
+    return get_resource()
+
 def ec2_resource():
     return get_resource()
 
@@ -79,6 +82,12 @@ def region():
         # Otherwise default to Ireland
         else:
             return 'eu-west-1'
+
+def regions():
+    return session().get_available_regions("s3")
+
+def stacks():
+    return [stack.name for stack in cloudformation_resource().stacks.all()]
 
 def is_ec2():
     if sys.platform.startswith("win"):

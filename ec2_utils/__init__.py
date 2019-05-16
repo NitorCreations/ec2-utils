@@ -15,6 +15,13 @@
 """ Main module for ec2-utils
 """
 import base64
+from os import environ
+cov = None
+if "EC2_UTILS_MEASURE_COVERAGE" in environ:
+    from coverage import Coverage
+    cov = Coverage(auto_data=True, source=["ec2_utils"])
+    cov.start()
+
 
 EC2_ONLY_SCRIPT = [
     'create-shell-archive.sh',
@@ -43,10 +50,11 @@ EC2_ONLY = [
     'prune-snapshots=ec2_utils.cli:prune_snapshots',
     'prune-s3-object-versions=ec2_utils.cli:prune_s3_object_versions',
     'pytail=ec2_utils.cli:read_and_follow',
-    'region=ec2_utils.cli:get_region',
+    'region=ec2_utils.cli:region',
     'register-private-dns=ec2_utils.cli:cli_register_private_dns',
     'snapshot-from-volume=ec2_utils.cli:snapshot_from_volume',
-    'stack-params-and-outputs=ec2_utils.cli:show_stack_params_and_outputs',
+    'stack-params-and-outputs=ec2_utils.cli:stack_params_and_outputs',
+    'subnet-id=ec2_utils.cli:subnet_id',
     'volume-from-snapshot=ec2_utils.cli:volume_from_snapshot',
     'wait-for-metadata=ec2_utils.cli:wait_for_metadata'
 ]

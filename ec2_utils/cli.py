@@ -2,18 +2,17 @@ import os
 import argcomplete
 import argparse
 import inspect
+import json
 import locale
 import sys
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
-from ec2_utils.instance_info import info, InstanceInfo
-from ec2_utils import logs, clients, ebs, s3, interface
-
-from ec2_utils.clients import is_ec2
+from ec2_utils.instance_info import info
+from ec2_utils import logs, clients, ebs, s3, interface, instance_info
+from ec2_utils.clients import is_ec2, stacks
 
 SYS_ENCODING = locale.getpreferredencoding()
 
 NoneType = type(None)
-
 
 def account_id():
     """Get current account id. Either from instance metadata or current cli
@@ -90,7 +89,7 @@ def cf_signal_status():
     that is either given on the command line or resolved from CloudFormation
     tags
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("status",
                         help="Status to indicate: SUCCESS | FAILURE").completer\
         = ChoicesCompleter(("SUCCESS", "FAILURE"))
@@ -107,7 +106,7 @@ def cf_signal_status():
 def cf_stack_name():
     """ Get name of the stack that created this instance
     """
-    parser = get_parser()
+    parser = _get_parser()
     argcomplete.autocomplete(parser)
     parser.parse_args()
     if is_ec2():
@@ -118,7 +117,7 @@ def cf_stack_name():
 def cf_stack_id():
     """ Get id of the stack the creted this instance
     """
-    parser = get_parser()
+    parser = _get_parser()
     argcomplete.autocomplete(parser)
     parser.parse_args()
     if is_ec2():
@@ -130,7 +129,7 @@ def clean_snapshots():
     """Clean snapshots that are older than a number of days (30 by default) and
     have one of specified tag values
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("-t", "--days", help="The number of days that is the" +
                                              "minimum age for snapshots to " +
                                              "be deleted", type=int, default=30)
@@ -145,9 +144,8 @@ def clean_snapshots():
 def detach_volume():
     """ Create a snapshot of a volume identified by it's mount path
     """
-    parser = get_parser()
-    parser.add_argument("mount_path", help="Where to mount the volume")
-        .completer = FilesCompleter()
+    parser = _get_parser()
+    parser.add_argument("mount_path", help="Where to mount the volume").completer = FilesCompleter()
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if is_ec2():
@@ -158,7 +156,7 @@ def detach_volume():
 def get_tag():
     """ Get the value of a tag for an ec2 instance
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("name", help="The name of the tag to get")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -203,7 +201,7 @@ def instance_id():
 def latest_snapshot():
     """Get the latest snapshot with a given tag
     """
-    parser = argparse.ArgumentParser(description=latest_snapshot.__doc__)
+    parser = _get_parser()
     parser.add_argument("tag", help="The tag to find snapshots with")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -249,31 +247,31 @@ def prune_snapshots():
     and yearly snapshots
     """
     parser = _get_parser()
-	parser.add_argument('-v', '--volume-id', type=str,
-	                    help='EBS Volume ID, if wanted for only one volume')
-	parser.add_argument('-n', '--tag-name', type=str,
-	                    help='Snapshot tag name', nargs='*')
-	parser.add_argument('-t', '--tag-value', type=str,
-	                    help='Snapshot tag value', nargs='*')
+    parser.add_argument('-v', '--volume-id', type=str,
+                        help='EBS Volume ID, if wanted for only one volume')
+    parser.add_argument('-n', '--tag-name', type=str,
+                        help='Snapshot tag name', nargs='*')
+    parser.add_argument('-t', '--tag-value', type=str,
+                        help='Snapshot tag value', nargs='*')
 
-	parser.add_argument('-t', '--ten-minutely', type=int,
-	                    help='Number of ten minutely snapshots to keep')
-	parser.add_argument('-h', '--hourly', type=int,
-	                    help='Number of hourly snapshots to keep')
-	parser.add_argument('-d', '--daily', type=int,
-	                    help='Number of daily snapshots to keep')
-	parser.add_argument('-w', '--weekly', type=int,
-	                    help='Number of weekly snapshots to keep')
-	parser.add_argument('-m', '--monthly', type=int,
-	                    help='Number of monthly snapshots to keep')
-	parser.add_argument('-y', '--yearly', type=int,
-	                    help='Number of yearly snapshots to keep')
+    parser.add_argument('-t', '--ten-minutely', type=int,
+                        help='Number of ten minutely snapshots to keep')
+    parser.add_argument('-h', '--hourly', type=int,
+                        help='Number of hourly snapshots to keep')
+    parser.add_argument('-d', '--daily', type=int,
+                        help='Number of daily snapshots to keep')
+    parser.add_argument('-w', '--weekly', type=int,
+                        help='Number of weekly snapshots to keep')
+    parser.add_argument('-m', '--monthly', type=int,
+                        help='Number of monthly snapshots to keep')
+    parser.add_argument('-y', '--yearly', type=int,
+                        help='Number of yearly snapshots to keep')
 
-	parser.add_argument('-r', '--dry-run', action='store_true',
-	                    help='Dry run - print actions that would be taken')
+    parser.add_argument('-r', '--dry-run', action='store_true',
+                        help='Dry run - print actions that would be taken')
 
     argcomplete.autocomplete(parser)
-	args = parser.parse_args()
+    args = parser.parse_args()
     ebs.prune_snapshots(**args)
 
 def prune_object_versions():
@@ -281,29 +279,29 @@ def prune_object_versions():
     and yearly versions
     """
     parser = _get_parser()
-	parser.add_argument('-b', '--bucket', type=str,
-	                    help='Bucket to prune')
-	parser.add_argument('-p', '--prefix', type=str,
-	                    help='Limit pruning to a prefix')
+    parser.add_argument('-b', '--bucket', type=str,
+                        help='Bucket to prune')
+    parser.add_argument('-p', '--prefix', type=str,
+                        help='Limit pruning to a prefix')
 
-	parser.add_argument('-t', '--ten-minutely', type=int,
-	                    help='Number of ten minutely snapshots to keep')
-	parser.add_argument('-h', '--hourly', type=int,
-	                    help='Number of hourly snapshots to keep')
-	parser.add_argument('-d', '--daily', type=int,
-	                    help='Number of daily snapshots to keep')
-	parser.add_argument('-w', '--weekly', type=int,
-	                    help='Number of weekly snapshots to keep')
-	parser.add_argument('-m', '--monthly', type=int,
-	                    help='Number of monthly snapshots to keep')
-	parser.add_argument('-y', '--yearly', type=int,
-	                    help='Number of yearly snapshots to keep')
+    parser.add_argument('-t', '--ten-minutely', type=int,
+                        help='Number of ten minutely snapshots to keep')
+    parser.add_argument('-h', '--hourly', type=int,
+                        help='Number of hourly snapshots to keep')
+    parser.add_argument('-d', '--daily', type=int,
+                        help='Number of daily snapshots to keep')
+    parser.add_argument('-w', '--weekly', type=int,
+                        help='Number of weekly snapshots to keep')
+    parser.add_argument('-m', '--monthly', type=int,
+                        help='Number of monthly snapshots to keep')
+    parser.add_argument('-y', '--yearly', type=int,
+                        help='Number of yearly snapshots to keep')
 
-	parser.add_argument('-r', '--dry-run', action='store_true',
-	                    help='Dry run - print actions that would be taken')
+    parser.add_argument('-r', '--dry-run', action='store_true',
+                        help='Dry run - print actions that would be taken')
 
     argcomplete.autocomplete(parser)
-	args = parser.parse_args()
+    args = parser.parse_args()
     ebs.prune_snapshots(**args)
 
 def region():
@@ -318,7 +316,7 @@ def register_private_dns():
     """ Register local private IP in route53 hosted zone usually for internal
     use.
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("dns_name", help="The name to update in route 53")
     parser.add_argument("hosted_zone", help="The name of the hosted zone to update")
     parser.add_argument("-t", "--ttl", help="Time to live for the record. 60 by default",
@@ -330,7 +328,7 @@ def register_private_dns():
 def snapshot_from_volume():
     """ Create a snapshot of a volume identified by it's mount path
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("-w", "--wait", help="Wait for the snapshot to finish" +
                         " before returning",
                         action="store_true")
@@ -358,17 +356,15 @@ def snapshot_from_volume():
 def stack_params_and_outputs():
     """ Show stack parameters and outputs as a single json documents
     """
-    parser = get_parser()
-    parser.add_argument("-r", "--region", help="Region for the stack to show",
-                        default=region()).completer = ChoicesCompleter(regions())
+    parser = _get_parser()
     parser.add_argument("-p", "--parameter", help="Name of paremeter if only" +
                                                   " one parameter required")
-    parser.add_argument("stack_name", help="The stack name to show").completer = \
-        ChoicesCompleter(stacks())
+    parser.add_argument("-s", "--stack-name", help="The name of the stack to show",
+                        default=info().stack_name()).completer = \
+                        ChoicesCompleter(stacks())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    resp, _ = instance_info.stack_params_and_outputs_and_stack(args.region,
-                                                               args.stack_name)
+    resp, _ = instance_info.stack_params_and_outputs_and_stack(stack_name=args.stack_name)
     if args.parameter:
         if args.parameter in resp:
             print(resp[args.parameter])
@@ -377,12 +373,23 @@ def stack_params_and_outputs():
     else:
         print(json.dumps(resp, indent=2))
 
+def subnet_id():
+    """ Get subnet id for instance
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        print(info().subnet_id())
+    else:
+        parser.error("Only makes sense on an EC2 instance")
+
 def volume_from_snapshot():
     """ Create a volume from an existing snapshot and mount it on the given
     path. The snapshot is identified by a tag key and value. If no tag is
     found, an empty volume is created, attached, formatted and mounted.
     """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument("tag_key", help="Key of the tag to find volume with")
     parser.add_argument("tag_value", help="Value of the tag to find volume with")
     parser.add_argument("mount_path", help="Where to mount the volume")
@@ -417,7 +424,7 @@ def volume_from_snapshot():
 def wait_for_metadata():
     """ Waits for metadata service to be available. All errors are ignored until
     time expires or a socket can be established to the metadata service """
-    parser = get_parser()
+    parser = _get_parser()
     parser.add_argument('--timeout', '-t', type=int, help="Maximum time to wait in seconds for the metadata service to be available", default=300)
     argcomplete.autocomplete(parser)
     args = parser.parse_args()

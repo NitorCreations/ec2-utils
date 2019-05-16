@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from ec2_utils.clients import ec2, sts, is_ec2, region, cloudformation, \
     INSTANCE_IDENTITY_URL
 from ec2_utils.utils import get_retry, wait_net_service
-
+from retry import retry
 
 ACCOUNT_ID = None
 INSTANCE_DATA = tempfile.gettempdir() + os.sep + 'instance-data.json'
@@ -73,6 +73,12 @@ class InstanceInfo(object):
         else:
             return None
 
+    def subnet_id(self):
+        if 'SubnetId' in self._info:
+            return self._info['SubnetId']
+        else:
+            return None
+        
     def instance_id(self):
         if 'instanceId' in self._info:
             return self._info['instanceId']
@@ -135,19 +141,19 @@ class InstanceInfo(object):
                 response = get_retry(INSTANCE_IDENTITY_URL)
                 self._info = json.loads(response.text)
                 os.environ['AWS_DEFAULT_REGION'] = self.region()
+                instance_info = {}
+                try:
+                    instance_info = _get_instance_info(self._info["instanceId"])
+                except ClientError:
+                    pass
+                if instance_info:
+                    self._info.update(instance_info)
                 tags = {}
-                tag_response = None
-                retry = 0
-                while not tag_response and retry < 20:
-                    try:
-                        tag_response = ec2().describe_tags(Filters=[{'Name': 'resource-id',
-                                                                      'Values': [self.instance_id()]}])
-                    except (ConnectionError, EndpointConnectionError):
-                        retry = retry + 1
-                        time.sleep(1)
-                        continue
-                    except ClientError:
-                        tag_response = { 'Tags': [] }
+                tag_response = { 'Tags': [] }
+                try:
+                    tag_response = self._get_tag_response()
+                except ClientError:
+                    pass
                 for tag in tag_response['Tags']:
                     tags[tag['Key']] = tag['Value']
                 self._info['Tags'] = tags
@@ -156,7 +162,7 @@ class InstanceInfo(object):
                 if 'aws:cloudformation:stack-id' in self._info['Tags']:
                     self._info['stack_id'] = tags['aws:cloudformation:stack-id']
                 if self.stack_name():
-                    stack_parameters, stack = stack_params_and_outputs_and_stack(region(), self.stack_name())
+                    stack_parameters, stack = stack_params_and_outputs_and_stack(stack_name=self.stack_name())
                     self._info['StackData'] = stack_parameters
                     self._info['FullStackData'] = stack
             except ConnectionError:
@@ -197,6 +203,10 @@ class InstanceInfo(object):
             if 'aws:cloudformation:logical-id' in tags:
                 self._info['logical_id'] = tags['aws:cloudformation:logical-id']
 
+    @retry((ConnectionError, EndpointConnectionError), tries=20, delay=1)
+    def _get_tag_response(self):
+        return ec2().describe_tags(Filters=[{'Name': 'resource-id',
+                                             'Values': [self.instance_id()]}])
     def stack_data_dict(self):
         if 'StackData' in self._info:
             return self._info['StackData']
@@ -210,34 +220,39 @@ class InstanceInfo(object):
     def __str__(self):
         return json.dumps(self._info, skipkeys=True)
 
-def stack_params_and_outputs_and_stack(stack_name):
+@retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
+def _get_stack(stack_name):
+    ret = cloudformation().describe_stacks(StackName=stack_name)
+    if "Stacks" in ret and ret["Stacks"]:
+        return ret["Stacks"][0]
+
+@retry((ConnectionError, EndpointConnectionError), tries=5, delay=1)
+def _get_stack_resources(stack_name):
+    return cloudformation().describe_stack_resources(StackName=stack_name)
+
+@retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
+def _get_instance_info(instance_id):
+    resp = ec2().describe_instances(InstanceIds=[instance_id])
+    if "Reservations" in resp and resp["Reservations"] and  \
+       "Instances" in resp["Reservations"][0] and resp["Reservations"][0]["Instances"]:
+        return resp["Reservations"][0]["Instances"][0]
+
+def stack_params_and_outputs_and_stack(stack_name=None):
     """ Get parameters and outputs from a stack as a single dict and the full stack
     """
-    retry = 0
     stack = {}
     resources = {}
-    while not stack and retry < 10:
-        try:
-            stack = cloudformation().describe_stacks(StackName=stack_name)
-            stack = stack['Stacks'][0]
-        except (ConnectionError, EndpointConnectionError):
-            retry = retry + 1
-            time.sleep(1)
-            continue
-        except ClientError:
-            break
+    try:
+        stack = _get_stack(stack_name)
+    except ClientError:
+        pass
     if not stack:
         return {}, {}
-    retry = 0
-    while not resources and retry < 3:
-        try:
-            resources = cloudformation().describe_stack_resources(StackName=stack_name)
-        except ClientError:
-            break
-        except (ConnectionError, EndpointConnectionError):
-            retry = retry + 1
-            time.sleep(1)
-            continue
+
+    try:
+        resources = _get_stack_resources(stack_name)
+    except ClientError:
+        pass
     resp = {}
     if 'CreationTime' in stack:
         stack['CreationTime'] = time.strftime("%a, %d %b %Y %H:%M:%S +0000",

@@ -5,7 +5,7 @@ import sys
 import locale
 from subprocess import PIPE, Popen
 from argcomplete import USING_PYTHON2, ensure_str, split_line
-from ec2_utils import COMMAND_MAPPINGS
+from ec2_utils import COMMAND_MAPPINGS, cov
 
 SYS_ENCODING = locale.getpreferredencoding()
 
@@ -79,36 +79,41 @@ def ec2():
     """ The main ec2 utils command that provides bash command
     completion and subcommand execution
     """
+    cov = None
     if "_ARGCOMPLETE" in os.environ:
         do_command_completion()
     else:
-        if len(sys.argv) < 2 or sys.argv[1] not in COMMAND_MAPPINGS:
-            sys.stderr.writelines([u'usage: ec2 <command> [args...]\n'])
-            sys.stderr.writelines([u'\tcommand shoud be one of:\n'])
-            for command in sorted(COMMAND_MAPPINGS):
-                sys.stderr.writelines([u'\t\t' + command + '\n'])
-            sys.exit(1)
-        command = sys.argv[1]
-        command_type = COMMAND_MAPPINGS[command]
-        if command_type == "shell":
-            command = command + ".sh"
-        if command_type == "ec2shell":
-            command = command + ".sh"
-        if command_type == "ec2powershell":
-            command = command + ".ps1"
-        if command_type == "ec2shell" or command_type == "ec2script":
-            command = find_include(command)
-        if command_type == "shell" or command_type == "script" or \
-           command_type == "ec2shell" or command_type == "ec2script" or \
-           command_type == "ec2powershell":
-            sys.exit(Popen([command] + sys.argv[2:]).wait())
-        else:
-            parts = command_type.split(":")
-            my_func = getattr(__import__(parts[0], fromlist=[parts[1]]),
-                              parts[1])
-            sys.argv = sys.argv[1:]
-            sys.argv[0] = "ec2 " + sys.argv[0]
-            my_func()
+        try:
+            if len(sys.argv) < 2 or sys.argv[1] not in COMMAND_MAPPINGS:
+                sys.stderr.writelines([u'usage: ec2 <command> [args...]\n'])
+                sys.stderr.writelines([u'\tcommand shoud be one of:\n'])
+                for command in sorted(COMMAND_MAPPINGS):
+                    sys.stderr.writelines([u'\t\t' + command + '\n'])
+                sys.exit(1)
+            command = sys.argv[1]
+            command_type = COMMAND_MAPPINGS[command]
+            if command_type == "shell":
+                command = command + ".sh"
+            if command_type == "ec2shell":
+                command = command + ".sh"
+            if command_type == "ec2powershell":
+                command = command + ".ps1"
+            if command_type == "ec2shell" or command_type == "ec2script":
+                command = find_include(command)
+            if command_type == "shell" or command_type == "script" or \
+               command_type == "ec2shell" or command_type == "ec2script" or \
+               command_type == "ec2powershell":
+                sys.exit(Popen([command] + sys.argv[2:]).wait())
+            else:
+                parts = command_type.split(":")
+                my_func = getattr(__import__(parts[0], fromlist=[parts[1]]),
+                                  parts[1])
+                sys.argv = sys.argv[1:]
+                sys.argv[0] = "ec2 " + sys.argv[0]
+                my_func()
+        finally:
+            if cov:
+                cov.stop()
 
 if __name__ == "__main__":
     ec2()

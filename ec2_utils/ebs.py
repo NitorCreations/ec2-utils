@@ -21,8 +21,9 @@ from botocore.exceptions import ClientError
 import psutil
 from ec2_utils.clients import ec2, ec2_resource
 from ec2_utils.ec2 import find_include
-from ec2_utils.instance_info import resolve_account, prune_array, info
-from ec2_utils.utils import delete_selected
+from ec2_utils.instance_info import resolve_account, info
+from ec2_utils.utils import delete_selected, prune_array
+
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5
 

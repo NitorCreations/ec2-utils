@@ -1,3 +1,4 @@
+from retry import retry
 from ec2_utils.clients import ec2, route53
 from ec2_utils.instance_info import info
 
@@ -27,6 +28,19 @@ def associate_eip(eip=None, allocation_id=None, eip_param=None,
     ec2().associate_address(InstanceId=info().instance_id(),
                             AllocationId=allocation_id,
                             AllowReassociation=True)
+
+def create_and_attach_eni():
+    iface = ec2_resource().create_network_interface(SubnetId=subnet_id)
+    if iface.status != "available":
+        _retry_eni_status(iface.id)
+    
+
+@retry(tries=60, delay=2, backoff=1)        
+def _retry_eni_status(eni_id):
+    iface = ec2_resource().NetworkInterface(eni_id)
+    if iface.status != 'available':
+        raise Exception("eni " + eni_id + " not available")
+    return True
 
 def register_private_dns(dns_name, hosted_zone, ttl=None):
     if not ttl:
