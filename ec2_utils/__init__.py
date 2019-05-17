@@ -19,7 +19,8 @@ from os import environ
 cov = None
 if "EC2_UTILS_MEASURE_COVERAGE" in environ:
     from coverage import Coverage
-    cov = Coverage(auto_data=True, source=["ec2_utils"])
+    cov = Coverage(auto_data=True, source=["ec2_utils"], branch=True,
+                   omit=["ec2_utils/__init__.py", "ec2_utils/elastic_c2_register_complete.py"])
     cov.start()
 
 
