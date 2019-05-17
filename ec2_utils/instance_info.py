@@ -14,6 +14,7 @@ from retry import retry
 
 ACCOUNT_ID = None
 INSTANCE_DATA = tempfile.gettempdir() + os.sep + 'instance-data.json'
+USER_DATA_URL = 'http://169.254.169.254/latest/user-data'
 INFO = None
 
 dthandler = lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else json.JSONEncoder().default(obj)
@@ -276,7 +277,7 @@ def signal_status(status, resource_name=None):
         resource_name = info().logical_id()
     print("Signalling " + status + " for " + info().stack_name() + "." \
           + resource_name)
-    cloudformation().signal_resource(StackName=info.stack_name(),
+    cloudformation().signal_resource(StackName=info().stack_name(),
                                      LogicalResourceId=resource_name,
                                      UniqueId=info().instance_id(),
                                      Status=status)
