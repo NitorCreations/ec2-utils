@@ -310,8 +310,9 @@ def delete_on_termination(device_path):
                                       "Ebs": {"DeleteOnTermination": True}}])
 
 
-def detach_volume(mount_path):
+def detach_volume(mount_path, delete_volume=False):
     device = device_from_mount_path(mount_path)
+    instance_id = info().instance_id()
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
         out = proc.communicate()[0]
@@ -322,13 +323,17 @@ def detach_volume(mount_path):
                     volume_id = volume_id.replace("vol", "vol-")
                 break
     else:
-        instance_id = info().instance_id()
         volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
                                                   "Values": [device]},
                                                  {"Name": "attachment.instance-id",
                                                   "Values": [instance_id]}])
         volume_id = volume['Volumes'][0]['VolumeId']
+    proc = Popen(["umount", "-f", mount_path], stdout=PIPE, stderr=PIPE)
+    out = proc.communicate()[0]
     ec2().detach_volume(VolumeId=volume_id, InstanceId=instance_id)
+    if delete_volume:
+        wait_for_volume_status(volume_id, "available")
+        ec2().delete_volume(VolumeId=volume_id)
 
 
 def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytags=[]):

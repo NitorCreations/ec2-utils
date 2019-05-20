@@ -19,7 +19,7 @@ from os import environ
 cov = None
 if "EC2_UTILS_MEASURE_COVERAGE" in environ:
     from coverage import Coverage
-    cov = Coverage(auto_data=True, source=["ec2_utils"], branch=True,
+    cov = Coverage(auto_data=True, source=["ec2_utils"], branch=False,
                    omit=["ec2_utils/__init__.py", "ec2_utils/elastic_c2_register_complete.py"])
     cov.start()
 
@@ -50,6 +50,8 @@ EC2_ONLY = [
     'interpolate-file=ec2_utils.cli:cli_interpolate_file',
     'latest-snapshot=ec2_utils.volumes:latest_snapshot',
     'list-tags=ec2_utils.cli:list_tags',
+    
+    
     'log-to-cloudwatch=ec2_utils.cli:log_to_cloudwatch',
     'prune-snapshots=ec2_utils.cli:prune_snapshots',
     'prune-s3-object-versions=ec2_utils.cli:prune_s3_object_versions',
