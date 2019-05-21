@@ -48,6 +48,8 @@ setup(name='ec2_utils',
       tests_require=[
           'pytest',
           'pytest-mock',
-          'pytest-cov'
+          'pytest-cov',
+          'coverage',
+          'coveralls'
       ],
       zip_safe=False)
