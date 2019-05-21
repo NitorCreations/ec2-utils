@@ -13,3 +13,4 @@ for test in $(ls tests/*.sh | sort); do
   fi
 done
 coverage report
+coverage html

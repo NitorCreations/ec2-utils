@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 [[ $UID = 0 ]] || exec sudo -E $0
 
 mkdir -p /mnt/testing
