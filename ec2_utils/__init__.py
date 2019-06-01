@@ -54,7 +54,7 @@ EC2_ONLY = [
     
     'log-to-cloudwatch=ec2_utils.cli:log_to_cloudwatch',
     'prune-snapshots=ec2_utils.cli:prune_snapshots',
-    'prune-s3-object-versions=ec2_utils.cli:prune_s3_object_versions',
+    'prune-s3-object-versions=ec2_utils.cli:prune_object_versions',
     'pytail=ec2_utils.cli:read_and_follow',
     'region=ec2_utils.cli:region',
     'register-private-dns=ec2_utils.cli:cli_register_private_dns',

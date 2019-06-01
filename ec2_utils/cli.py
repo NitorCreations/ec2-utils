@@ -12,6 +12,7 @@ from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
 from ec2_utils import logs, clients, ebs, s3, interface, instance_info, utils
 from ec2_utils.clients import is_ec2, stacks
+from ec2_utils.s3 import prune_s3_object_versions
 
 SYS_ENCODING = locale.getpreferredencoding()
 
@@ -259,55 +260,66 @@ def prune_snapshots():
     parser.add_argument('-t', '--tag-value', type=str,
                         help='Snapshot tag value', nargs='*')
 
-    parser.add_argument('-t', '--ten-minutely', type=int,
-                        help='Number of ten minutely snapshots to keep')
-    parser.add_argument('-h', '--hourly', type=int,
-                        help='Number of hourly snapshots to keep')
+    parser.add_argument('-M', '--ten-minutely', type=int,
+                        help='Number of ten minutely snapshots to keep. ' + \
+                             'Defaults to two days of these.', default=288)
+    parser.add_argument('-H', '--hourly', type=int,
+                        help='Number of hourly snapshots to keep. ' +\
+                             'Defaults to a week of these.', default=168)
     parser.add_argument('-d', '--daily', type=int,
-                        help='Number of daily snapshots to keep')
+                        help='Number of daily snapshots to keep. ' +\
+                             'Defaults to a month of these.', default=30)
     parser.add_argument('-w', '--weekly', type=int,
-                        help='Number of weekly snapshots to keep')
+                        help='Number of weekly snapshots to keep. ' +\
+                             'Defaults to 3 months of these.', default=13)
     parser.add_argument('-m', '--monthly', type=int,
-                        help='Number of monthly snapshots to keep')
+                        help='Number of monthly snapshots to keep. ' +\
+                             'Defaults to a year of these.', default=12)
     parser.add_argument('-y', '--yearly', type=int,
-                        help='Number of yearly snapshots to keep')
+                        help='Number of yearly snapshots to keep. ' +\
+                             'Defaults to three years.', default=3)
 
     parser.add_argument('-r', '--dry-run', action='store_true',
                         help='Dry run - print actions that would be taken')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    ebs.prune_snapshots(**args)
+    ebs.prune_snapshots(**vars(args))
 
 def prune_object_versions():
     """ Prune s3 object versions to have a specified amout of daily, weekly, monthly
     and yearly versions
     """
     parser = _get_parser()
-    parser.add_argument('-b', '--bucket', type=str,
-                        help='Bucket to prune')
+    parser.add_argument('bucket', type=str, help='Bucket to prune')
     parser.add_argument('-p', '--prefix', type=str,
-                        help='Limit pruning to a prefix')
+                        help='Limit pruning to a prefix', default="")
 
-    parser.add_argument('-t', '--ten-minutely', type=int,
-                        help='Number of ten minutely snapshots to keep')
-    parser.add_argument('-h', '--hourly', type=int,
-                        help='Number of hourly snapshots to keep')
+    parser.add_argument('-M', '--ten-minutely', type=int,
+                        help='Number of ten minutely object versions to keep. ' +\
+                             'Defaults to two days of these.', default=288)
+    parser.add_argument('-H', '--hourly', type=int,
+                        help='Number of hourly object versions to keep. ' +\
+                             'Defaults to a week of these.', default=168)
     parser.add_argument('-d', '--daily', type=int,
-                        help='Number of daily snapshots to keep')
+                        help='Number of daily object versions to keep. ' +\
+                             'Defaults to a month of these.', default=30)
     parser.add_argument('-w', '--weekly', type=int,
-                        help='Number of weekly snapshots to keep')
+                        help='Number of weekly object versions to keep. ' +\
+                             'Defaults to 3 months of these.', default=13)
     parser.add_argument('-m', '--monthly', type=int,
-                        help='Number of monthly snapshots to keep')
+                        help='Number of monthly object versions to keep. ' +\
+                             'Defaults to a year of these.', default=12)
     parser.add_argument('-y', '--yearly', type=int,
-                        help='Number of yearly snapshots to keep')
+                        help='Number of yearly object versions to keep. ' +\
+                             'Defaults to three years.', default=3)
 
     parser.add_argument('-r', '--dry-run', action='store_true',
                         help='Dry run - print actions that would be taken')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    ebs.prune_snapshots(**args)
+    prune_s3_object_versions(**vars(args))
 
 def region():
     """ Get current default region. Defaults to the region of the instance on

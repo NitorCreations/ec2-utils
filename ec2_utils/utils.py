@@ -1,9 +1,14 @@
 import json
 import requests
 import sys
+import time
+from datetime import datetime, timedelta
+from dateutil import tz
+from dateutil.relativedelta import relativedelta
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError
 from retry import retry
+from termcolor import colored
 from urllib3.util.retry import Retry
 from botocore.exceptions import ClientError, EndpointConnectionError
 
@@ -135,7 +140,6 @@ def _select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
 def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
     has_deleted = False
     for obj in full_array:
-        print(name_func(obj))
         if obj not in deleted:
             print(colored("Skipping " + name_func(obj), "cyan") +
                   " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
@@ -153,7 +157,7 @@ def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
                 print(colored("Delete failed: " +
                               err.response['Error']['Message'], "red"))
     if not has_deleted:
-        print(colored("Nothin to delete", "green"))
+        print(colored("Nothing to delete", "green"))
 
 @retry(ClientError, tries=5, delay=1, backoff=3)
 def delete_object(obj):
