@@ -15,4 +15,4 @@ done
 coverage report
 coverage html
 vault -l ec2-utils-coveralls.yml -o .coveralls.yml
-coveralls
+#coveralls

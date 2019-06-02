@@ -57,6 +57,27 @@ def associate_eip():
                             eip_param=args.eipparam,
                             allocation_id_param=args.allocationidparam)
 
+def attach_eni():
+    """ Create and attach an elastic network interface
+    """
+    parser = _get_parser()
+    parser.add_argument("-s", "--subnet", help="Subnet for the elastic " +\
+                                               "network inferface. Needs to " +\
+                                               "be on the same availability " +\
+                                               "zone as the instance.")
+
+
+def availability_zone():
+    """ Get availability zone for the instance
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        print(info().availability_zone())
+    else:
+        parser.error("Only makes sense on an EC2 instance cretated from a CF stack")
+    
 def cf_logical_id():
     """ Get the logical id that is expecting a signal from this instance
     """
@@ -144,6 +165,16 @@ def clean_snapshots():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     ebs.clean_snapshots(args.days, args.tags, dry_run=args.dry_run)
+
+def detach_eni():
+    """ Detach an eni from this instance
+    """
+    parser = _get_parser()
+    parser.add_argument("-i", "--eni-id", help="Eni id to detach").completer = ChoicesCompleter(info().network_interface_ids())
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    interface.detach_eni(args.eni_id)    
+
 
 def detach_volume():
     """ Create a snapshot of a volume identified by it's mount path
@@ -237,6 +268,16 @@ def log_to_cloudwatch():
     args = parser.parse_args()
     logs.send_log_to_cloudwatch(args.file, group=args.group, stream=args.stream)
 
+def network_interface_ids():
+    """ List network interface ids attached to the instance in the order of
+    attachment device index
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    for eni_id in info().network_interface_ids():
+        print(eni_id)
+    
 def read_and_follow():
     """Read and print a file and keep following the end for new data
     """

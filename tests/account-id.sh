@@ -1,3 +1,3 @@
 #!/bin/bash -ex
 
-ec2 account-id | egrep '[0-9]{10,13}'
+ec2 availability-zone | egrep '^(ap|ca|eu|sa|us)-(central|east|north|northeast|south|southeast|west)-[0-9][abcde]'

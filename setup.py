@@ -39,7 +39,8 @@ setup(name='ec2_utils',
           'termcolor',
           'argcomplete',
           'psutil',
-          'python-dateutil'
+          'python-dateutil',
+          'retry'
       ] + ([
           'win-unicode-console',
           'wmi',

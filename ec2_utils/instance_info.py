@@ -110,6 +110,13 @@ class InstanceInfo(object):
         else:
             return None
 
+    def network_interface_ids(self):
+        if 'NetworkInterfaces' in self._info:
+            return [eni["NetworkInterfaceId"] for eni in 
+                sorted(self._info["NetworkInterfaces"], key=lambda ni: ni["Attachment"]["DeviceIndex"])]
+        else:
+            return []
+
     def private_ip(self):
         if 'privateIp' in self._info:
             return self._info['privateIp']
@@ -119,6 +126,12 @@ class InstanceInfo(object):
     def tag(self, name):
         if 'Tags' in self._info and name in self._info['Tags']:
             return self._info['Tags'][name]
+        else:
+            return None
+
+    def tags(self):
+        if 'Tags' in self._info and name in self._info['Tags']:
+            return self._info['Tags']
         else:
             return None
 
@@ -227,11 +240,11 @@ def _get_stack(stack_name):
     if "Stacks" in ret and ret["Stacks"]:
         return ret["Stacks"][0]
 
-@retry((ConnectionError, EndpointConnectionError), tries=5, delay=1)
+@retry((ConnectionError, EndpointConnectionError), tries=5, delay=1, backoff=1.5)
 def _get_stack_resources(stack_name):
     return cloudformation().describe_stack_resources(StackName=stack_name)
 
-@retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
+@retry((ConnectionError, EndpointConnectionError), tries=10, delay=1, backoff=1.5)
 def _get_instance_info(instance_id):
     resp = ec2().describe_instances(InstanceIds=[instance_id])
     if "Reservations" in resp and resp["Reservations"] and  \
