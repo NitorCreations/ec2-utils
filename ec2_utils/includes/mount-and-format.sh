@@ -41,23 +41,23 @@ usage() {
   echo "" >&2
   echo "optional arguments:" >&2
   echo "  -h, --help  show this help message and exit" >&2
-  if [ -n "$1" ]; then
+  if [ -n "$2" ]; then
     echo "" >&2
-    echo "$1" >&2
+    echo "$2" >&2
   fi
-  exit 1
+  exit $1
 }
 
 if [ "$1" = "--help" -o "$1" = "-h" ]; then
-  usage
+  usage 0
 fi
 
 # Check arguments
 if ! [ -b "$1" ]; then
-  usage "'$1' not a block device"
+  usage 1 "'$1' not a block device"
 fi
 if ! ([ -d "$2" ] || mkdir -p "$2"); then
-  usage "Mount point $2 not available"
+  usage 1 "Mount point $2 not available"
 fi
 DEVPATH=$1
 MOUNT_PATH=$2

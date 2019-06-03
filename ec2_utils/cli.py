@@ -248,6 +248,18 @@ def latest_snapshot():
     else:
         sys.exit(1)
 
+def list_tags():
+    """ List all tags associated with the instance
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        for key, value in info().tags().items():
+            print(key + "=" + value) 
+    else:
+        parser.error("Only makes sense on an EC2 instance")
+
 def log_to_cloudwatch():
     """Read a file and send rows to cloudwatch and keep following the end for new data.
     The log group will be the stack name that created instance if not given

@@ -1,6 +1,16 @@
 param (
-  [string]$drive
+  [string]$drive,
+  [switch]$h = $false
 )
+if ($h) {
+  echo "usage: ec2 disk-by-drive-letter [-h] {drive}"
+  echo ""
+  echo "positional arguments:"
+  echo "  drive  the drive to get disk info for"
+  echo "optional arguments:"
+  echo "  -h     show this help message and exit"
+  exit 0
+}
 Get-WmiObject Win32_DiskDrive | % {
   $disk = $_
   $partitions = "ASSOCIATORS OF " +

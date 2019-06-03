@@ -31,16 +31,16 @@ usage() {
   echo "" >&2
   echo "optional arguments:" >&2
   echo "  -h, --help  show this help message and exit" >&2
-  exit 1
+  exit $1
 }
 
 if [ "$1" = "--help" -o "$1" = "-h" ]; then
-  usage
+  usage 0
 fi
 
 host="$1"
-if [ ! "$host" -o "$host" = "--help" ]; then
-  usage
+if [ ! "$host" ]; then
+  usage 1
 fi
 ec2 create-shell-archive /etc/ssh/ssh_host_* > ${host}-ssh-hostkeys.sh 
 chmod og= ${host}-ssh-hostkeys.sh

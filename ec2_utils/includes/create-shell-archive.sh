@@ -29,11 +29,11 @@ usage() {
   echo "" >&2
   echo "optional arguments:" >&2
   echo "  -h, --help  show this help message and exit" >&2
-  exit 1
+  exit $1
 }
 
 if [ "$1" = "--help" -o "$1" = "-h" ]; then
-  usage
+  usage 0
 fi
 
 eof_marker="AR_EOF_MARKER_$(basename $(mktemp --dry-run | tr . _))"
