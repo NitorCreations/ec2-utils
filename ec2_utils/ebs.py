@@ -102,7 +102,8 @@ def disk_by_drive_letter(drive_letter):
 
 
 def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
-                         size_gb=None, del_on_termination=True, tags=[], copytags=[]):
+                         size_gb=None, del_on_termination=True, tags=[], copytags=[],
+                         ignore_missing_copytags=False):
     snapshot = get_latest_snapshot(tag_key, tag_value)
     if snapshot:
         print("Found snapshot " + snapshot.id)
@@ -114,7 +115,8 @@ def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
         print("Creating empty volyme of size " + str(size_gb))
         volume = create_empty_volume(size_gb,
                                      availability_zone=availability_zone)
-    tag_volume(volume, tag_key, tag_value, tags, copytags)
+    tag_volume(volume, tag_key, tag_value, tags, copytags,
+               ignore_missing_copytags=ignore_missing_copytags)
     device = first_free_device()
     print("Attaching volume " + volume + " to " + device)
     attach_volume(volume, device)
@@ -368,15 +370,18 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytag
     return snap['SnapshotId']
 
 
-def tag_volume(volume, tag_key, tag_value, tags, copytags):
-    tag_array = _create_tag_array(tag_key, tag_value, tags, copytags)
+def tag_volume(volume, tag_key, tag_value, tags, copytags, ignore_missing_copytags=False):
+    tag_array = _create_tag_array(tag_key, tag_value, tags, copytags, ignore_missing_copytags=ignore_missing_copytags)
     ec2().create_tags(Resources=[volume], Tags=tag_array)
 
 
-def _create_tag_array(tag_key, tag_value, tags={}, copytags=[]):
+def _create_tag_array(tag_key, tag_value, tags={}, copytags=[], ignore_missing_copytags=False):
     if copytags:
         for tag in copytags:
-            tags[tag] = info().tag(tag)
+            if info().tag(tag):
+                tags[tag] = info().tag(tag)
+            elif not ignore_missing_copytags:
+                raise Exception("Missing copy tag " + tag)
     create_tags = []
     if not tags:
         tags = {}
