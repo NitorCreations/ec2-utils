@@ -58,14 +58,27 @@ def associate_eip():
                             allocation_id_param=args.allocationidparam)
 
 def attach_eni():
-    """ Create and attach an elastic network interface
+    """ Optionally create and attach an elastic network interface
     """
     parser = _get_parser()
-    parser.add_argument("-s", "--subnet", help="Subnet for the elastic " +\
-                                               "network inferface. Needs to " +\
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-s", "--subnet", help="Subnet for the elastic " +\
+                                               "network inferface if one is " +\
+                                               "created. Needs to " +\
                                                "be on the same availability " +\
-                                               "zone as the instance.")
-
+                                               "zone as the instance.").completer = ChoicesCompleter(interface.list_compatible_subnet_ids())
+    group.add_argument("-i", "--eni-id", help="Id of the eni to attach, if " +\
+                                               "attaching an existing eni.").completer = ChoicesCompleter(interface.list_attachable_eni_ids())
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    if args.subnet:
+        iface = interface.create_eni(args.subnet)
+    elif args.eni_id:
+        iface = interface.get_eni(args.eni_id)
+    else:
+        iface = interface.create_eni(info().subnet_id())
+    interface.attach_eni(iface.id)
+    print(iface.id)
 
 def availability_zone():
     """ Get availability zone for the instance
@@ -166,15 +179,31 @@ def clean_snapshots():
     args = parser.parse_args()
     ebs.clean_snapshots(args.days, args.tags, dry_run=args.dry_run)
 
+def create_eni():
+    """ create an elastic network interface
+    """
+    parser = _get_parser()
+    parser.add_argument("-s", "--subnet", help="Subnet for the elastic " +\
+                                               "network inferface if one is " +\
+                                               "created. Needs to " +\
+                                               "be on the same availability " +\
+                                               "zone as the instance.").completer = ChoicesCompleter(interface.list_compatible_subnet_ids())
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    if not args.subnet:
+        args.subnet = info().subnet_id()
+    iface = interface.create_eni(args.subnet)
+    print(iface.id)
+
 def detach_eni():
     """ Detach an eni from this instance
     """
     parser = _get_parser()
     parser.add_argument("-i", "--eni-id", help="Eni id to detach").completer = ChoicesCompleter(info().network_interface_ids())
+    parser.add_argument("-d", "--delete", help="Delete eni after detach", action="store_true")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    interface.detach_eni(args.eni_id)    
-
+    interface.detach_eni(args.eni_id, delete=args.delete)    
 
 def detach_volume():
     """ Create a snapshot of a volume identified by it's mount path
@@ -247,6 +276,46 @@ def latest_snapshot():
         print(snapshot.id)
     else:
         sys.exit(1)
+
+def list_attachable_enis():
+    """ List all enis in the same availability-zone, i.e. ones that can be attached
+    to this instance.
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        for eni_id in interface.list_attachable_eni_ids():
+            print(eni_id) 
+    else:
+        parser.error("Only makes sense on an EC2 instance")
+
+def list_attached_enis():
+    """ List all enis in the same availability-zone, i.e. ones that can be attached
+    to this instance.
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        for eni_id in info().network_interface_ids():
+            print(eni_id) 
+    else:
+        parser.error("Only makes sense on an EC2 instance")
+
+
+def list_compatible_subnets():
+    """ List all subnets in the same availability-zone, i.e. ones that can have
+    ENIs that can be attached to this instance.
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    if is_ec2():
+        for subnet_id in interface.list_compatible_subnet_ids():
+            print(subnet_id) 
+    else:
+        parser.error("Only makes sense on an EC2 instance")
 
 def list_tags():
     """ List all tags associated with the instance

@@ -117,6 +117,14 @@ class InstanceInfo(object):
         else:
             return []
 
+    def next_network_interface_index(self):
+        iface = None
+        if 'NetworkInterfaces' in self._info:
+            iface = max(self._info["NetworkInterfaces"], key=lambda ni: ni["Attachment"]["DeviceIndex"])
+        if iface:
+            return iface["Attachment"]["DeviceIndex"] + 1
+        return 0
+
     def private_ip(self):
         if 'privateIp' in self._info:
             return self._info['privateIp']
@@ -130,7 +138,7 @@ class InstanceInfo(object):
             return None
 
     def tags(self):
-        if 'Tags' in self._info and name in self._info['Tags']:
+        if 'Tags' in self._info:
             return self._info['Tags']
         else:
             return None

@@ -371,7 +371,8 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytag
 
 
 def tag_volume(volume, tag_key, tag_value, tags, copytags, ignore_missing_copytags=False):
-    tag_array = _create_tag_array(tag_key, tag_value, tags, copytags, ignore_missing_copytags=ignore_missing_copytags)
+    tag_array = _create_tag_array(tag_key, tag_value, tags, copytags,
+                                  ignore_missing_copytags=ignore_missing_copytags)
     ec2().create_tags(Resources=[volume], Tags=tag_array)
 
 

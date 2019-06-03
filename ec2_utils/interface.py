@@ -7,7 +7,7 @@ from ctypes import (
     c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_int, c_uint16, c_uint32
 )
 from retry import retry
-from ec2_utils.clients import ec2, route53
+from ec2_utils.clients import ec2, ec2_resource, route53
 from ec2_utils.instance_info import info
 
 def associate_eip(eip=None, allocation_id=None, eip_param=None,
@@ -37,20 +37,43 @@ def associate_eip(eip=None, allocation_id=None, eip_param=None,
                             AllocationId=allocation_id,
                             AllowReassociation=True)
 
-def create_and_attach_eni(subnet_id):
+def create_eni(subnet_id):
     iface = ec2_resource().create_network_interface(SubnetId=subnet_id)
-    if iface.status != "available":
-        iface = _retry_eni_status(iface.id, "available")
-    iface.attach(DeviceIndex=next_network_if_index(),
+    return _retry_eni_status(iface.id, "available")
+
+def list_attachable_enis():
+    return ec2_resource().network_interfaces.filter(Filters=[{"Name": "availability-zone",
+                                                              "Values": [info().availability_zone()]},
+                                                             {"Name": "status",
+                                                              "Values": ["available"]}])
+
+def get_eni(eni_id):
+    return ec2_resource().NetworkInterface(eni_id)
+
+def list_attachable_eni_ids():
+    return [eni.id for eni in list_attachable_enis()]
+
+def list_compatible_subnets():
+    return ec2_resource().subnets.filter(Filters=[{"Name": "availability-zone",
+                                                   "Values": [info().availability_zone()]}])
+
+def list_compatible_subnet_ids():
+    return [subnet.id for subnet in list_compatible_subnets()]
+
+def attach_eni(eni_id):
+    iface = ec2_resource().NetworkInterface(eni_id)
+    iface.attach(DeviceIndex=info().next_network_interface_index(),
                  InstanceId=info().instance_id())
     return _retry_eni_status(iface.id, "in-use")
 
-def detach_eni(eni_id):
+def detach_eni(eni_id, delete=False):
     iface = ec2_resource().NetworkInterface(eni_id)
     iface.detach()
     if iface.status != "available":
         iface = _retry_eni_status(iface.id, "available")
-    
+    if delete:
+        iface.delete()
+
 @retry(tries=60, delay=2, backoff=1)        
 def _retry_eni_status(eni_id, status):
     iface = ec2_resource().NetworkInterface(eni_id)
