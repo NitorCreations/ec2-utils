@@ -74,7 +74,7 @@ def detach_eni(eni_id, delete=False):
     if delete:
         iface.delete()
 
-@retry(tries=60, delay=2, backoff=1)        
+@retry(tries=60, delay=2, backoff=1)
 def _retry_eni_status(eni_id, status):
     iface = ec2_resource().NetworkInterface(eni_id)
     if iface.status != status:

@@ -18,6 +18,8 @@ SYS_ENCODING = locale.getpreferredencoding()
 
 NoneType = type(None)
 
+dthandler = lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else json.JSONEncoder().default(obj)
+
 def account_id():
     """Get current account id. Either from instance metadata or current cli
     configuration.
@@ -295,11 +297,22 @@ def list_attached_enis():
     to this instance.
     """
     parser = _get_parser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-i", "--ip-address", help="Include first private ip addresses for the interfaces in the output", action="store_true")
+    group.add_argument("-f", "--full", help="Print all available data about attached enis as json", action="store_true")    
     argcomplete.autocomplete(parser)
-    parser.parse_args()
+    args = parser.parse_args()
     if is_ec2():
-        for eni_id in info().network_interface_ids():
-            print(eni_id) 
+        enis = info().network_interfaces()
+        if args.full:
+            print(json.dumps(enis, indent=2, default=dthandler))
+        else:
+            for eni in enis:
+                ip_addr = ":" + eni["PrivateIpAddresses"][0]["PrivateIpAddress"] \
+                    if args.ip_address and "PrivateIpAddresses" in eni and \
+                    eni["PrivateIpAddresses"] and "PrivateIpAddress" in \
+                    eni["PrivateIpAddresses"][0] else ""
+                print(eni["NetworkInterfaceId"] + ip_addr)
     else:
         parser.error("Only makes sense on an EC2 instance")
 

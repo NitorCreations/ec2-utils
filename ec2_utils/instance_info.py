@@ -109,11 +109,16 @@ class InstanceInfo(object):
             return self._info['availabilityZone']
         else:
             return None
+    def network_interfaces(self):
+        if 'NetworkInterfaces' in self._info:
+            return self._info["NetworkInterfaces"]
+        else:
+            return []
 
     def network_interface_ids(self):
-        if 'NetworkInterfaces' in self._info:
+        if self.network_interfaces():
             return [eni["NetworkInterfaceId"] for eni in 
-                sorted(self._info["NetworkInterfaces"], key=lambda ni: ni["Attachment"]["DeviceIndex"])]
+                    sorted(self.network_interfaces(), key=lambda ni: ni["Attachment"]["DeviceIndex"])]
         else:
             return []
 
