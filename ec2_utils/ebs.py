@@ -287,10 +287,9 @@ def wait_for_snapshot_complete(snapshot_id, timeout_sec=900):
         if time.time() - start > timeout_sec:
             raise Exception("Failed waiting for status 'completed' for " +
                             snapshot_id + " (timeout: " + str(timeout_sec) + ")")
-        resp = ec2().snapshots(SnapshotIds=[snapshot_id])
+        resp = ec2().describe_snapshots(SnapshotIds=[snapshot_id])
         if "Snapshots" in resp:
             snapshot = resp['Snapshots'][0]
-
 
 def is_snapshot_complete(snapshot):
     return snapshot is not None and 'State' in snapshot and \
@@ -338,8 +337,10 @@ def detach_volume(mount_path, delete_volume=False):
         ec2().delete_volume(VolumeId=volume_id)
 
 
-def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={}, copytags=[]):
-    create_tags = _create_tag_array(tag_key, tag_value, tags, copytags)
+def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},
+                    copytags=[], ignore_missing_copytags=False):
+    create_tags = _create_tag_array(tag_key, tag_value, tags, copytags,
+                                    ignore_missing_copytags=ignore_missing_copytags)
     device = device_from_mount_path(mount_path)
     with open(os.devnull, 'w') as devnull:
         subprocess.call(["sync", mount_path[0]], stdout=devnull,
@@ -448,8 +449,7 @@ def clean_snapshots(days, tags, dry_run=False):
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
     newest_timestamp = newest_timestamp .replace(tzinfo=tz.UTC)
     filters = snapshot_filters(tag_value=tags)
-    ec2_res = ec2_resource()
-    for snapshot in ec2_res.snapshots.filter(Filters=filters):
+    for snapshot in ec2_resource().snapshots.filter(Filters=filters):
         tags = {}
         for tag in snapshot.tags:
             tags[tag['Key']] = tag['Value']
@@ -467,7 +467,7 @@ def clean_snapshots(days, tags, dry_run=False):
                 print(colored("Delete failed: " +
                               err.response['Error']['Message'], "red"))
         else:
-            print(colored("Skipping " + snapshot['SnapshotId'], "cyan") +
+            print(colored("Skipping " + snapshot.id, "cyan") +
                   " || " + time.strftime("%a, %d %b %Y %H:%M:%S", print_time) +
                   " || " + json.dumps(tags))
 
@@ -478,12 +478,10 @@ def clean_snapshots(days, tags, dry_run=False):
 def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
                     ten_minutely=288, hourly=168, daily=30,
                     weekly=13, monthly=6, yearly=3, dry_run=False):
-    ec2_res = ec2_resource()
-
     filters = snapshot_filters(volume_id=volume_id, tag_name=tag_name,
                                tag_value=tag_value)
     time_func = lambda snapshot: snapshot.start_time
-    snapshots = sorted([s for s in ec2_res.snapshots.filter(Filters=filters)],
+    snapshots = sorted([s for s in ec2_resource().snapshots.filter(Filters=filters)],
                         key=time_func, reverse=True)
     keep, snapshots_to_delete = prune_array(snapshots,
                                             time_func,

@@ -489,6 +489,7 @@ def snapshot_from_volume():
     parser.add_argument("mount_path", help="Where to mount the volume")
     parser.add_argument("-c", "--copytags", nargs="*", help="Tag to copy to the snapshot from instance. Multiple values allowed.")
     parser.add_argument("-t", "--tags", nargs="*", help="Tag to add to the snapshot in the format name=value. Multiple values allowed.")
+    parser.add_argument("-i", "--ignore-missing-copytags", action="store_true", help="If set, missing copytags are ignored.")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     tags = {}
@@ -501,7 +502,9 @@ def snapshot_from_volume():
                 parser.error("Invalid tag/value input: " + tag)
     if is_ec2():
         print(ebs.create_snapshot(args.tag_key, args.tag_value,
-                                  args.mount_path, wait=args.wait, tags=tags, copytags=args.copytags))
+                                  args.mount_path, wait=args.wait, tags=tags,
+                                  copytags=args.copytags,
+                                  ignore_missing_copytags=args.ignore_missing_copytags))
     else:
         parser.error("Only makes sense on an EC2 instance")
 
