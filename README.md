@@ -358,6 +358,18 @@ optional arguments:
   -h, --help  show this help message and exit
 ```
 
+## `ec2 list-local-interfaces`
+
+```bash
+usage: ec2 list-local-interfaces [-h] [-j]
+
+List local interfaces
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -j, --json  Output in json format
+```
+
 ## `ec2 list-tags`
 
 ```bash
