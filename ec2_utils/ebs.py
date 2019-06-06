@@ -301,7 +301,7 @@ def attach_volume(volume_id, device_path):
     ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id,
                       Device=device_path)
     wait_for_volume_status(volume_id, "attached")
-
+    info().clear_cache()
 
 def delete_on_termination(device_path):
     instance_id = info().instance_id()
@@ -311,30 +311,32 @@ def delete_on_termination(device_path):
                                       "Ebs": {"DeleteOnTermination": True}}])
 
 
-def detach_volume(mount_path, delete_volume=False):
-    device = device_from_mount_path(mount_path)
+def detach_volume(mount_path, delete_volume=False, volume_id=None):
     instance_id = info().instance_id()
-    if "/nvme" in device:
-        proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
-        out = proc.communicate()[0]
-        for nvme_line in out.split("\n"):
-            if nvme_line.startswith("sn"):
-                volume_id = nvme_line.split()[2]
-                if "vol-" not in volume_id:
-                    volume_id = volume_id.replace("vol", "vol-")
-                break
-    else:
-        volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
-                                                  "Values": [device]},
-                                                 {"Name": "attachment.instance-id",
-                                                  "Values": [instance_id]}])
-        volume_id = volume['Volumes'][0]['VolumeId']
+    if not volume_id:
+        device = device_from_mount_path(mount_path)
+        if "/nvme" in device:
+            proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
+            out = proc.communicate()[0]
+            for nvme_line in out.split("\n"):
+                if nvme_line.startswith("sn"):
+                    volume_id = nvme_line.split()[2]
+                    if "vol-" not in volume_id:
+                        volume_id = volume_id.replace("vol", "vol-")
+                    break
+        else:
+            volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
+                                                      "Values": [device]},
+                                                     {"Name": "attachment.instance-id",
+                                                      "Values": [instance_id]}])
+            volume_id = volume['Volumes'][0]['VolumeId']
     proc = Popen(["umount", "-f", mount_path], stdout=PIPE, stderr=PIPE)
     out = proc.communicate()[0]
     ec2().detach_volume(VolumeId=volume_id, InstanceId=instance_id)
     if delete_volume:
         wait_for_volume_status(volume_id, "available")
         ec2().delete_volume(VolumeId=volume_id)
+    info().clear_cache()
 
 
 def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},

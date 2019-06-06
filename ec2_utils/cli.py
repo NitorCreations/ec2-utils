@@ -214,6 +214,7 @@ def detach_volume():
     parser.add_argument("mount_path", help="Mount point of the volume to be detached").completer = FilesCompleter()
     parser.add_argument("-d", "--delete", help="Delete volume after detaching",
                         action="store_true")
+    parser.add_argument("-i", "--volume-id", help="Eni id to detach").completer = ChoicesCompleter(info().volume_ids())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if is_ec2():
@@ -316,6 +317,18 @@ def list_attached_enis():
     else:
         parser.error("Only makes sense on an EC2 instance")
 
+def list_attached_volumes():
+    """ List attached volumes
+    """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    if is_ec2():
+        for volume_id in info().volume_ids():
+            print(volume_id)
+    else:    
+        parser.error("Only makes sense on an EC2 instance")
+
 
 def list_compatible_subnets():
     """ List all subnets in the same availability-zone, i.e. ones that can have
@@ -361,6 +374,27 @@ def log_to_cloudwatch():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     logs.send_log_to_cloudwatch(args.file, group=args.group, stream=args.stream)
+
+def get_logs():
+    """Get logs from multiple CloudWatch log groups and possibly filter them.
+    """
+    parser = _get_parser()
+    parser.add_argument("log_group_pattern", help="Regular expression to filter log groups with")
+    parser.add_argument("-f", "--filter", help="CloudWatch filter pattern")
+    parser.add_argument("-s", "--start", help="Start time (x m|h|d|w ago | now | <seconds since epoc>)", nargs="+")
+    parser.add_argument("-e", "--end", help="End time (x m|h|d|w ago | now | <seconds since epoc>)", nargs="+")
+    parser.add_argument("-o", "--order", help="Best effort ordering of log entries", action="store_true")
+    parser.usage = "ndt logs log_group_pattern [-h] [-f FILTER] [-s START [START ...]] [-e END [END ...]] [-o]"
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    cwlogs_groups = logs.CloudWatchLogsGroups(
+        log_group_filter=args.log_group_pattern,
+        log_filter=args.filter,
+        start_time=' '.join(args.start) if args.start else None,
+        end_time=' '.join(args.end) if args.end else None,
+        sort=args.order
+    )
+    cwlogs_groups.get_logs()
 
 def network_interface_ids():
     """ List network interface ids attached to the instance in the order of

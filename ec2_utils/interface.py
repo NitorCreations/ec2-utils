@@ -1,6 +1,7 @@
 import ctypes.util
 import ctypes
 from socket import AF_INET, AF_INET6, inet_ntop
+import time
 from ctypes import (
     Structure, Union, POINTER,
     pointer, get_errno, cast,
@@ -36,6 +37,7 @@ def associate_eip(eip=None, allocation_id=None, eip_param=None,
     ec2().associate_address(InstanceId=info().instance_id(),
                             AllocationId=allocation_id,
                             AllowReassociation=True)
+    info().clear_cache()
 
 def create_eni(subnet_id):
     iface = ec2_resource().create_network_interface(SubnetId=subnet_id)
@@ -64,15 +66,19 @@ def attach_eni(eni_id):
     iface = ec2_resource().NetworkInterface(eni_id)
     iface.attach(DeviceIndex=info().next_network_interface_index(),
                  InstanceId=info().instance_id())
-    return _retry_eni_status(iface.id, "in-use")
+    iface = _retry_eni_status(iface.id, "in-use")
+    info().clear_cache()
+    return iface
 
 def detach_eni(eni_id, delete=False):
     iface = ec2_resource().NetworkInterface(eni_id)
     iface.detach()
     if iface.status != "available":
         iface = _retry_eni_status(iface.id, "available")
+    time.sleep(3)
     if delete:
         iface.delete()
+    info().clear_cache()
 
 @retry(tries=60, delay=2, backoff=1)
 def _retry_eni_status(eni_id, status):

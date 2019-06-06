@@ -122,6 +122,16 @@ class InstanceInfo(object):
         else:
             return []
 
+    def volumes(self):
+        if 'BlockDeviceMappings' in self._info:
+            return self._info['BlockDeviceMappings']
+        else:
+            return []
+    
+    def volume_ids(self):
+        if self.volumes():
+            return [ebs['Ebs']['VolumeId'] for ebs in self.volumes() if "Ebs" in ebs]
+
     def next_network_interface_index(self):
         iface = None
         if 'NetworkInterfaces' in self._info:
@@ -152,7 +162,7 @@ class InstanceInfo(object):
         if os.path.isfile(INSTANCE_DATA):
             os.remove(INSTANCE_DATA)
         self._info = None
-        self.__init__(self)
+        self.__init__()
 
     def __init__(self):
         if os.path.isfile(INSTANCE_DATA) and \
@@ -208,15 +218,11 @@ class InstanceInfo(object):
                 info_file = info_file_dir + os.sep + 'instance-data.json'
                 with open(info_file, 'w') as outf:
                     outf.write(json.dumps(self._info, skipkeys=True, indent=2, default=dthandler))
-                try:
-                    os.chmod(info_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP |
-                             stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
-                    os.chmod(info_file_dir, stat.S_IRUSR | stat.S_IWUSR |
-                             stat.S_IXUSR | stat.S_IRGRP | stat.S_IWGRP |
-                             stat.S_IXGRP | stat.S_IROTH | stat.S_IWOTH |
-                             stat.S_IXOTH)
-                except BaseException:
-                    pass
+                    try:
+                        os.chmod(info_file, 0o666)
+                        os.chmod(info_file_dir, 0o777)
+                    except BaseException:
+                        pass
         if self.region():
             os.environ['AWS_DEFAULT_REGION'] = self.region()
         if 'FullStackData' in self._info and 'StackStatus' in self._info['FullStackData']:
