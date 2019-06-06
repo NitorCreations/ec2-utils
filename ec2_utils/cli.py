@@ -343,6 +343,24 @@ def list_compatible_subnets():
     else:
         parser.error("Only makes sense on an EC2 instance")
 
+def list_local_interfaces():
+    """ List local interfaces
+    """
+    parser = _get_parser()
+    parser.add_argument("-j", "--json", help="Output in json format", action="store_true")
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    to_print={}
+    for iface in interface.get_network_interfaces():
+        if args.json:
+            to_print[iface.name] = { "index": iface.index,
+                                     "ipv4":  iface.addresses.get(interface.AF_INET),
+                                     "ipv6": iface.addresses.get(interface.AF_INET6) }
+        else:
+            print(iface)
+    if to_print:
+        print(json.dumps(to_print, indent=2))
+    
 def list_tags():
     """ List all tags associated with the instance
     """

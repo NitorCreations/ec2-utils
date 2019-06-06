@@ -56,6 +56,7 @@ EC2_ONLY = [
     'list-attached-enis=ec2_utils.cli:list_attached_enis',
     'list-attached-volumes=ec2_utils.cli:list_attached_volumes',
     'list-compatible-subnets=ec2_utils.cli:list_compatible_subnets',
+    'list-local-interfaces=ec2_utils.cli:list_local_interfaces',
     'list-tags=ec2_utils.cli:list_tags',
     'log-to-cloudwatch=ec2_utils.cli:log_to_cloudwatch',
     'logs=ec2_utils.cli:get_logs',

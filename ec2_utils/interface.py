@@ -49,9 +49,6 @@ def list_attachable_enis():
                                                              {"Name": "status",
                                                               "Values": ["available"]}])
 
-def get_eni(eni_id):
-    return ec2_resource().NetworkInterface(eni_id)
-
 def list_attachable_eni_ids():
     return [eni.id for eni in list_attachable_enis()]
 
@@ -211,9 +208,3 @@ def get_network_interfaces():
         return sorted(retval.values(), key=key_func)
     finally:
         libc.freeifaddrs(ifap)
-
-def next_network_if_index():
-    ifaces = get_network_interfaces()
-    if ifaces:
-        return ifaces[-1].index + 1
-    return 0
