@@ -2,6 +2,7 @@ from builtins import str
 import glob
 import os
 import sys
+import signal
 import locale
 from subprocess import PIPE, Popen
 from argcomplete import USING_PYTHON2, ensure_str, split_line
@@ -75,14 +76,20 @@ def do_command_completion():
         sys.exit(0)
 
 
+def stop_cov(signum, frame):
+    if cov:
+        cov.save()
+        cov.stop()
+
 def ec2():
     """ The main ec2 utils command that provides bash command
     completion and subcommand execution
     """
-    cov = None
     if "_ARGCOMPLETE" in os.environ:
         do_command_completion()
     else:
+        signal.signal(signal.SIGINT, stop_cov)
+        signal.signal(signal.SIGTERM, stop_cov)
         try:
             if len(sys.argv) < 2 or sys.argv[1] not in COMMAND_MAPPINGS:
                 sys.stderr.writelines([u'usage: ec2 <command> [args...]\n'])
@@ -112,8 +119,7 @@ def ec2():
                 sys.argv[0] = "ec2 " + sys.argv[0]
                 my_func()
         finally:
-            if cov:
-                cov.stop()
+            stop_cov(None, None)
 
 if __name__ == "__main__":
     ec2()
