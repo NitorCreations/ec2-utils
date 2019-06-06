@@ -31,7 +31,6 @@ else
   NEW_VERSION=$MAJOR.$MINOR
 fi
 
-./refresh-documentation.sh
 sed -i "s/$VERSION/$NEW_VERSION/g" setup.py
 sed -i "s/## Released version.*/## Released version $NEW_VERSION/g" README.md
 sed -i "s/nameless-deploy-tools==.*/nameless-deploy-tools==$NEW_VERSION/g" docker/Dockerfile
