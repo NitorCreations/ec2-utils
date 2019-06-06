@@ -52,7 +52,7 @@ def s3_resource():
     return get_resource()
 
 def route53():
-    return get_resource()
+    return get_client()
 
 def session():
     if not hasattr(CLIENTS, 'session'):
