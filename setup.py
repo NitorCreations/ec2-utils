@@ -15,11 +15,11 @@ import sys
 from setuptools import setup
 from ec2_utils import CONSOLESCRIPTS
 
-setup(name='ec2_utils',
-      version='0.1',
+setup(name='ec2-utils',
+      version='0.2',
       description='Tools for using on an ec2 instance',
       url='http://github.com/NitorCreations/ec2-utils',
-      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.1',
+      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.2',
       author='Pasi Niemi',
       author_email='pasi@nitor.com',
       license='Apache 2.0',
