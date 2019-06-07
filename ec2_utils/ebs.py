@@ -222,9 +222,9 @@ def attached_devices(volume_id=None):
 def get_latest_snapshot(tag_name, tag_value):
     """Get the latest snapshot with a given tag
     """
+    filters = snapshot_filters(tag_name=tag_name, tag_value=tag_value)
     snapshots = sorted(ec2_resource().snapshots.filter(
-        Filters=[{'Name': 'tag:' + tag_name,
-                  'Values': [tag_value]}]),
+        Filters=filters),
         key=lambda k: k.start_time, reverse=True)
     if snapshots:
         return snapshots[0]

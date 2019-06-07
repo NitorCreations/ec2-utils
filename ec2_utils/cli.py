@@ -414,16 +414,6 @@ def get_logs():
     )
     cwlogs_groups.get_logs()
 
-def network_interface_ids():
-    """ List network interface ids attached to the instance in the order of
-    attachment device index
-    """
-    parser = _get_parser()
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args()
-    for eni_id in info().network_interface_ids():
-        print(eni_id)
-    
 def read_and_follow():
     """Read and print a file and keep following the end for new data
     """

@@ -43,6 +43,9 @@ def create_eni(subnet_id):
     iface = ec2_resource().create_network_interface(SubnetId=subnet_id)
     return _retry_eni_status(iface.id, "available")
 
+def get_eni(eni_id):
+    return ec2_resource().NetworkInterface(eni_id)
+
 def list_attachable_enis():
     return ec2_resource().network_interfaces.filter(Filters=[{"Name": "availability-zone",
                                                               "Values": [info().availability_zone()]},

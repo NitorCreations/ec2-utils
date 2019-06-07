@@ -48,6 +48,7 @@ EC2_ONLY = [
     'create-eni=ec2_utils.cli:create_eni',
     'detach-volume=ec2_utils.cli:detach_volume',
     'detach-eni=ec2_utils.cli:detach_eni',
+    'get-latest-snapshot=ec2_utils.cli:latest_snapshot',
     'get-tag=ec2_utils.cli:get_tag',
     'get-userdata=ec2_utils.cli:get_userdata',
     'instance-id=ec2_utils.cli:instance_id',

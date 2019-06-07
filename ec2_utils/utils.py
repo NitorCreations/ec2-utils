@@ -75,31 +75,29 @@ def wait_net_service(server, port, timeout=None):
 def prune_array(prunable, time_func, group_by_func, ten_minutely=None,
                 hourly=None, daily=None, weekly=None, monthly=None, yearly=None,
                 dry_run=False): 
-    
-    objects = sorted([obj for obj in prunable], key=time_func)
     keep = set()
     now = datetime.now(tz.UTC)
 
     if ten_minutely:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_ten_minutes,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_ten_minutes,
                      now - relativedelta(minutes = ten_minutely * 10), now)
     if hourly:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_hour,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_hour,
                      now - relativedelta(hours = hourly), now)
     if daily:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_day,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_day,
                      now - relativedelta(days = daily), now)
     if weekly:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_week,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_week,
                      now - relativedelta(weeks = weekly), now)
     if monthly:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_month,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_month,
                      now - relativedelta(months = monthly), now)
     if yearly:
-        _select_kept(keep, objects, time_func, group_by_func, _start_of_year,
+        _select_kept(keep, prunable, time_func, group_by_func, _start_of_year,
                      now - relativedelta(years = yearly), now)
     
-    delete = sorted(set(objects) - keep, key=time_func)
+    delete = sorted(set(prunable) - keep, key=time_func, reverse=True)
     return keep, delete
     
 
