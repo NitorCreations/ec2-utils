@@ -12,7 +12,6 @@ for test in $(ls tests/*.sh | sort); do
     cat $OUT
   fi
 done
-coverage report
-coverage html
-vault -r eu-west-1 -l ec2-utils-coveralls.yml -o .coveralls.yml
-coveralls
+
+aws s3 cp .coverage s3://ec2-utils-test/coverage-lin-$1
+

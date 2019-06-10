@@ -1,0 +1,3 @@
+git
+powershell
+bind-utils

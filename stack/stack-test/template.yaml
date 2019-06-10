@@ -1,0 +1,160 @@
+Parameters:
+    paramAmilin:
+        Type: String
+        Description: Linux image id
+        Default: ""
+    paramAmiwin:
+        Type: String
+        Description: Windows image id
+        Default: ""
+    paramBuildNumber:
+        Type: String
+        Description: Build number
+        Default: 0000
+Resources:
+    resourceAsgLin:
+      Type: AWS::AutoScaling::AutoScalingGroup
+      Properties:
+        AvailabilityZones: [eu-west-1a, eu-west-1b, eu-west-1c]
+        Cooldown: '300'
+        DesiredCapacity: '1'
+        HealthCheckGracePeriod: '300'
+        HealthCheckType: EC2
+        MaxSize: '2'
+        MinSize: '1'
+        VPCZoneIdentifier:
+          - ${paramSubnetA}
+          - ${paramSubnetB}
+          - ${paramSubnetC}
+        LaunchConfigurationName: {Ref: resourceLcLin}
+        Tags:
+          - Key: Name
+            Value: "ec2-util-test-linux"
+            PropagateAtLaunch: 'true'
+        TerminationPolicies: [Default]
+      CreationPolicy:
+        ResourceSignal:
+          Count: '1'
+          Timeout: PT20M
+      UpdatePolicy:
+        AutoScalingRollingUpdate:
+          MinInstancesInService: '0'
+          MaxBatchSize: '1'
+          WaitOnResourceSignals: 'true'
+          PauseTime: PT20M
+    resourceLcLin:
+      Type: AWS::AutoScaling::LaunchConfiguration
+      Properties:
+        AssociatePublicIpAddress: 'true'
+        ImageId: {Ref: paramAmilin}
+        InstanceType: m5d.large
+        KeyName: nitor-infra
+        IamInstanceProfile: {Ref: instanceprofileResource}
+        SpotPrice: '0.2'
+        SecurityGroups:
+          - $paramSg
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs: {VolumeSize: 8, VolumeType: gp2}
+        UserData:
+          Fn::Base64: {'Fn::ImportFile': userdata.sh }
+    resourceAsgWin:
+      Type: AWS::AutoScaling::AutoScalingGroup
+      Properties:
+        AvailabilityZones: [eu-west-1a, eu-west-1b, eu-west-1c]
+        Cooldown: '300'
+        DesiredCapacity: '1'
+        HealthCheckGracePeriod: '300'
+        HealthCheckType: EC2
+        MaxSize: '2'
+        MinSize: '1'
+        VPCZoneIdentifier:
+          - ${paramSubnetA}
+          - ${paramSubnetB}
+          - ${paramSubnetC}
+        LaunchConfigurationName: {Ref: resourceLcWin}
+        Tags:
+          - Key: Name
+            Value: "ec2-util-test-windows"
+            PropagateAtLaunch: 'true'
+        TerminationPolicies: [Default]
+      CreationPolicy:
+        ResourceSignal:
+          Count: '1'
+          Timeout: PT20M
+      UpdatePolicy:
+        AutoScalingRollingUpdate:
+          MinInstancesInService: '0'
+          MaxBatchSize: '1'
+          WaitOnResourceSignals: 'true'
+          PauseTime: PT20M
+    resourceLcWin:
+      Type: AWS::AutoScaling::LaunchConfiguration
+      Properties:
+        AssociatePublicIpAddress: 'true'
+        ImageId: {Ref: paramAmiwin}
+        InstanceType: m5d.large
+        KeyName: nitor-infra
+        IamInstanceProfile: {Ref: instanceprofileResource}
+        SpotPrice: '0.2'
+        SecurityGroups:
+          - $paramSg
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs: {VolumeSize: 30, VolumeType: gp2}
+        UserData:
+          Fn::Base64: {'Fn::ImportFile': userdata.ps1 }
+    resourceRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: { 'Fn::ImportYaml': ((includes))/template-snippets/policydoc_assumerole.yaml }
+        Path: /
+        Policies:
+        - { 'Fn::ImportYaml': ((includes))/template-snippets/policy_ec2_associate_address.yaml }
+        - { 'Fn::ImportYaml': ((includes))/template-snippets/policy_cloud_init.yaml }
+        - PolicyName: S3Test
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: S3TestObjects
+              Effect: Allow
+              Action: ['s3:Get*', 's3:List*', 's3:PutObject*']
+              Resource: ['arn:aws:s3:::ec2-utils-test/*']
+            - Sid: S3TestBucket
+              Effect: Allow
+              Action: ['s3:ListBucket']
+              Resource: ['arn:aws:s3:::ec2-utils-test']
+        - PolicyName: dataVolumeManagement
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: dataVolumeManagement
+              Effect: Allow
+              Action:
+                - 'ec2:AttachVolume'
+                - 'ec2:CreateSnapshot'
+                - 'ec2:CreateTags'
+                - 'ec2:CreateVolume'
+                - 'ec2:DeleteSnapshot'
+                - 'ec2:DescribeSnapshots'
+                - 'ec2:DescribeTags'
+                - 'ec2:DescribeVolumeAttribute'
+                - 'ec2:DescribeVolumeStatus'
+                - 'ec2:DescribeVolumes'
+                - 'ec2:DetachVolume'
+                - 'ec2:ModifyInstanceAttribute'
+              Resource: ['*']
+        - PolicyName: route53Management
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: route53Management
+              Effect: Allow
+              Action:
+                - 'route53:ChangeResourceRecordSets'
+                - 'route53:ListHostedZones'
+                - 'route53:GetChange'
+              Resource: ['*']
+        ManagedPolicyArns:
+          - StackRef: {region: {Ref: 'AWS::Region'}, stackName: vault, paramName: decryptPolicy }
+    instanceprofileResource: { 'Fn::ImportYaml': ((includes))/template-snippets/instanceprofile.yaml }
