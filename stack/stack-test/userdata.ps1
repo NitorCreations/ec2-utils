@@ -9,11 +9,10 @@ $ec2configOutput = Start-Job {ndt logs-to-cloudwatch 'C:\Program Files\Amazon\Ec
 
 
 $build = #CF{ Ref: paramBuildNumber }
+$env:AWS_DEFAULT_PROFILE = #CF{ Ref: 'AWS::Region' }
 
 mkdir -p .ssh
-chmod 700 .ssh
-vault -l jenkins.nitor.zone.rsa -o .ssh/id_rsa
-chmod 600 .ssh/id_rsa
+vault -l jenkins.nitor.zone.rsa -o .ssh\id_rsa
 git clone git@github.com:NitorCreations/ec2-utils.git
 cd ec2-utils
 pip install -e .
