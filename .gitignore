@@ -103,3 +103,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 .coveralls.yml
+ami-id.txt
+ami-tag.txt
+ami.properties
+ansible.cfg
+name.txt

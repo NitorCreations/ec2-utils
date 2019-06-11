@@ -1,2 +1,3 @@
 post_install.sh
 pre_install.sh
+bake-credentials
