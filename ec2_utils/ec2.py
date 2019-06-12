@@ -80,7 +80,8 @@ def stop_cov(signum, frame):
     if cov:
         cov.save()
         cov.stop()
-    sys.exit(0)
+    if signum:
+        sys.exit(0)
 
 def ec2():
     """ The main ec2 utils command that provides bash command
