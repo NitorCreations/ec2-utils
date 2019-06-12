@@ -22,7 +22,7 @@ import psutil
 from ec2_utils.clients import ec2, ec2_resource
 from ec2_utils.ec2 import find_include
 from ec2_utils.instance_info import resolve_account, info
-from ec2_utils.utils import delete_selected, prune_array
+from ec2_utils.utils import delete_selected, prune_array, delete_object
 
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5
@@ -67,7 +67,7 @@ def wmic_disk_with_target_id(target_id):
 def wmic_disk_with_volume_id(volume_id):
     vol2 = volume_id.replace("-", "")
     ret = [x for x in wmic_diskdrive_get() \
-        if x['SerialNumber'].startswith(volume_id) or \
+           if x['SerialNumber'].startswith(volume_id) or \
            x['SerialNumber'].startswith(vol2)]
     if ret:
         return ret[0]
@@ -77,7 +77,7 @@ def wmic_disk_with_volume_id(volume_id):
 
 def wmic_disk_with_disk_number(disk_number):
     ret = [x for x in wmic_diskdrive_get() \
-        if x['Index'] == disk_number]
+           if x['Index'] == disk_number]
     if ret:
         return ret[0]
     else:
@@ -209,9 +209,9 @@ def first_free_device():
 
 def attached_devices(volume_id=None):
     volumes = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id",
-                                             "Values": [ info().instance_id() ]},
-                                            {"Name": "attachment.status",
-                                             "Values": [ "attached" ]}])
+                                               "Values": [ info().instance_id() ]},
+                                              {"Name": "attachment.status",
+                                               "Values": [ "attached" ]}])
     ret = []
     for volume in volumes['Volumes']:
         for attachment in volume['Attachments']:
@@ -299,7 +299,7 @@ def is_snapshot_complete(snapshot):
 def attach_volume(volume_id, device_path):
     instance_id = info().instance_id()
     ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id,
-                      Device=device_path)
+                        Device=device_path)
     wait_for_volume_status(volume_id, "attached")
     info().clear_cache()
 
@@ -307,8 +307,8 @@ def delete_on_termination(device_path):
     instance_id = info().instance_id()
     ec2().modify_instance_attribute(InstanceId=instance_id,
                                     BlockDeviceMappings=[{
-                                      "DeviceName": device_path,
-                                      "Ebs": {"DeleteOnTermination": True}}])
+                                        "DeviceName": device_path,
+                                        "Ebs": {"DeleteOnTermination": True}}])
 
 
 def detach_volume(mount_path, delete_volume=False, volume_id=None):
@@ -434,7 +434,7 @@ def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
         tag_name = [tag_name]
     if tag_value and not isinstance(tag_value, list):
         tag_value = [tag_value]
-    
+
     filters =  [{ 'Name': 'status', 'Values': [ 'completed' ]}]
     if volume_id:
         filters.append({ 'Name': 'volume-id', 'Values': [volume_id] })
@@ -484,7 +484,7 @@ def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
                                tag_value=tag_value)
     time_func = lambda snapshot: snapshot.start_time
     snapshots = sorted([s for s in ec2_resource().snapshots.filter(Filters=filters)],
-                        key=time_func, reverse=True)
+                       key=time_func, reverse=True)
     keep, snapshots_to_delete = prune_array(snapshots,
                                             time_func,
                                             lambda snapshot: snapshot.volume_id,
