@@ -493,6 +493,11 @@ def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
                                             daily=daily,
                                             weekly=weekly,
                                             yearly=yearly)
-    delete_selected(snapshots, snapshots_to_delete,
-                    lambda s: s.id + " " + s.tags["Name"] if "Name" in s.tags else s.id,
-                    time_func, dry_run=dry_run)
+    delete_selected(snapshots, snapshots_to_delete, name_for_snap, time_func,
+                    dry_run=dry_run)
+
+def name_for_snap(snap):
+    for tag in snap.tags:
+        if tag["Key"] == "Name" or tag["Key"] == tag["Value"]:
+            return (snap.id + " " + tag["Value"]).ljust(50)
+    return snap.id.ljust(50)
