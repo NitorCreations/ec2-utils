@@ -65,12 +65,12 @@ def attach_eni():
     parser = _get_parser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-s", "--subnet", help="Subnet for the elastic " +\
-                                               "network inferface if one is " +\
-                                               "created. Needs to " +\
-                                               "be on the same availability " +\
-                                               "zone as the instance.").completer = ChoicesCompleter(interface.list_compatible_subnet_ids())
+                       "network inferface if one is " +\
+                       "created. Needs to " +\
+                       "be on the same availability " +\
+                       "zone as the instance.").completer = ChoicesCompleter(interface.list_compatible_subnet_ids())
     group.add_argument("-i", "--eni-id", help="Id of the eni to attach, if " +\
-                                               "attaching an existing eni.").completer = ChoicesCompleter(interface.list_attachable_eni_ids())
+                       "attaching an existing eni.").completer = ChoicesCompleter(interface.list_attachable_eni_ids())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if args.subnet:
@@ -92,7 +92,7 @@ def availability_zone():
         print(info().availability_zone())
     else:
         parser.error("Only makes sense on an EC2 instance cretated from a CF stack")
-    
+
 def cf_logical_id():
     """ Get the logical id that is expecting a signal from this instance
     """
@@ -360,7 +360,7 @@ def list_local_interfaces():
             print(iface)
     if to_print:
         print(json.dumps(to_print, indent=2))
-    
+
 def list_tags():
     """ List all tags associated with the instance
     """
@@ -558,7 +558,7 @@ def stack_params_and_outputs():
                                                   " one parameter required")
     parser.add_argument("-s", "--stack-name", help="The name of the stack to show",
                         default=info().stack_name()).completer = \
-                        ChoicesCompleter(stacks())
+        ChoicesCompleter(stacks())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     resp, _ = instance_info.stack_params_and_outputs_and_stack(stack_name=args.stack_name)
@@ -641,7 +641,7 @@ def wait_for_metadata():
             sys.exit(1)
         time.sleep(1)
         timeout = max(1, args.timeout - (datetime.utcnow().replace(tzinfo=tzutc()) - start).total_seconds())
-    
+
 
 def _get_parser(formatter=None):
     func_name = inspect.stack()[1][3]

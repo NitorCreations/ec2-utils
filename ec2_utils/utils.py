@@ -96,44 +96,44 @@ def prune_array(prunable, time_func, group_by_func, ten_minutely=None,
     if yearly:
         _select_kept(keep, prunable, time_func, group_by_func, _start_of_year,
                      now - relativedelta(years = yearly), now)
-    
+
     delete = sorted(set(prunable) - keep, key=time_func, reverse=True)
     return keep, delete
-    
+
 
 def _start_of_ten_minutes(date):
     return date.replace(second=0, microsecond=0) - timedelta(minutes=date.minute % 10)
 
 def _start_of_hour(date):
-	return date.replace(minute=0, second=0, microsecond=0)
+    return date.replace(minute=0, second=0, microsecond=0)
 
 def _start_of_day(date):
-	return date.replace(hour=0, minute=0, second=0, microsecond=0)
+    return date.replace(hour=0, minute=0, second=0, microsecond=0)
 
 def _start_of_week(date):
-	return date.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days = date.weekday())
+    return date.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days = date.weekday())
 
 def _start_of_month(date):
-	return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 def _start_of_year(date):
-	return date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    return date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
 def _select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
-	groups = {}
-	prev = None
-	for obj in obects:
-		obj_time = time_func(obj)
-		obj_group = group_by_func(obj)
-		if obj_group not in groups:
-		    groups[obj_group] = {"curr": None, "prev": None}
-		groups[obj_group]["curr"] = start_func(obj_time)
-		if groups[obj_group]["curr"] != groups[obj_group]["prev"] \
-		   and (obj_time > end or end > now):
-			keep.add(obj)
-		groups[obj_group]["prev"] = groups[obj_group]["curr"]
-        if obj_time < end:
-            return
+    groups = {}
+    prev = None
+    for obj in obects:
+        obj_time = time_func(obj)
+        obj_group = group_by_func(obj)
+        if obj_group not in groups:
+            groups[obj_group] = {"curr": None, "prev": None}
+        groups[obj_group]["curr"] = start_func(obj_time)
+        if groups[obj_group]["curr"] != groups[obj_group]["prev"] \
+           and (obj_time > end or end > now):
+            keep.add(obj)
+        groups[obj_group]["prev"] = groups[obj_group]["curr"]
+    if obj_time < end:
+        return
 
 def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
     has_deleted = False
@@ -141,11 +141,11 @@ def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
         if obj not in deleted:
             print(colored("Skipping " + name_func(obj), "cyan") +
                   " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
-                  time_func(obj).timetuple()))
+                                         time_func(obj).timetuple()))
         else:
             print(colored("Deleting " + name_func(obj), "yellow") +
                   " || " + time.strftime("%a, %d %b %Y %H:%M:%S",
-                  time_func(obj).timetuple()))
+                                         time_func(obj).timetuple()))
             has_deleted = True
             try:
                 if not dry_run:

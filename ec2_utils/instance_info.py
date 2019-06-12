@@ -24,7 +24,7 @@ def info():
     if not INFO:
         INFO = InstanceInfo()
     return INFO
-        
+
 
 def resolve_account():
     global ACCOUNT_ID
@@ -34,7 +34,7 @@ def resolve_account():
         except BaseException:
             pass
     return ACCOUNT_ID
-    
+
 
 def set_region():
     """ Sets the environment variable AWS_DEFAULT_REGION if not already set
@@ -79,7 +79,7 @@ class InstanceInfo(object):
             return self._info['SubnetId']
         else:
             return None
-        
+
     def instance_id(self):
         if 'instanceId' in self._info:
             return self._info['instanceId']
@@ -127,7 +127,7 @@ class InstanceInfo(object):
             return self._info['BlockDeviceMappings']
         else:
             return []
-    
+
     def volume_ids(self):
         if self.volumes():
             return [ebs['Ebs']['VolumeId'] for ebs in self.volumes() if "Ebs" in ebs]
