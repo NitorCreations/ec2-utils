@@ -61,7 +61,6 @@ EC2_ONLY = [
     'list-tags=ec2_utils.cli:list_tags',
     'log-to-cloudwatch=ec2_utils.cli:log_to_cloudwatch',
     'logs=ec2_utils.cli:get_logs',
-    'network-interface-ids=ec2_utils.cli:network_interface_ids',
     'prune-snapshots=ec2_utils.cli:prune_snapshots',
     'prune-s3-object-versions=ec2_utils.cli:prune_object_versions',
     'pytail=ec2_utils.cli:read_and_follow',
