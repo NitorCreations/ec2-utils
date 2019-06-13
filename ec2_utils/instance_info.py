@@ -270,9 +270,11 @@ def _get_instance_info(instance_id):
        "Instances" in resp["Reservations"][0] and resp["Reservations"][0]["Instances"]:
         return resp["Reservations"][0]["Instances"][0]
 
-def stack_params_and_outputs_and_stack(stack_name=None):
+def stack_params_and_outputs_and_stack(stack_name=None, stack_region=None):
     """ Get parameters and outputs from a stack as a single dict and the full stack
     """
+    if not stack_region:
+        stack_region=region()
     stack = {}
     resources = {}
     try:
