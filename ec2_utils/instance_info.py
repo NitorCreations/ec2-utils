@@ -254,14 +254,14 @@ class InstanceInfo(object):
         return json.dumps(self._info, skipkeys=True)
 
 @retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
-def _get_stack(stack_name):
-    ret = cloudformation().describe_stacks(StackName=stack_name)
+def _get_stack(stack_name, stack_region=None):
+    ret = cloudformation(region=stack_region).describe_stacks(StackName=stack_name)
     if "Stacks" in ret and ret["Stacks"]:
         return ret["Stacks"][0]
 
 @retry((ConnectionError, EndpointConnectionError), tries=5, delay=1, backoff=1.5)
-def _get_stack_resources(stack_name):
-    return cloudformation().describe_stack_resources(StackName=stack_name)
+def _get_stack_resources(stack_name, stack_region=None):
+    return cloudformation(region=stack_region).describe_stack_resources(StackName=stack_name)
 
 @retry((ConnectionError, EndpointConnectionError), tries=10, delay=1, backoff=1.5)
 def _get_instance_info(instance_id):
@@ -273,19 +273,17 @@ def _get_instance_info(instance_id):
 def stack_params_and_outputs_and_stack(stack_name=None, stack_region=None):
     """ Get parameters and outputs from a stack as a single dict and the full stack
     """
-    if not stack_region:
-        stack_region=region()
     stack = {}
     resources = {}
     try:
-        stack = _get_stack(stack_name)
+        stack = _get_stack(stack_name, stack_region=stack_region)
     except ClientError:
         pass
     if not stack:
         return {}, {}
 
     try:
-        resources = _get_stack_resources(stack_name)
+        resources = _get_stack_resources(stack_name, stack_region=stack_region)
     except ClientError:
         pass
     resp = {}

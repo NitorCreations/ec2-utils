@@ -9,50 +9,56 @@ from ec2_utils.utils import get_retry
 CLIENTS = local()
 INSTANCE_IDENTITY_URL = 'http://169.254.169.254/latest/dynamic/instance-identity/document'
 
-def get_client():
+def get_client(client_region=None):
+    if not client_region:
+        client_region = region()
     caller_name = inspect.stack()[1][3]
-    if not hasattr(CLIENTS, caller_name):
+    param_name = client_region + "_" + caller_name
+    if not hasattr(CLIENTS, param_name):
         # region() has one benefit over default resolving - defaults to
         # ec2 instance region if on ec2 and otherwise unset
-        setattr(CLIENTS, caller_name, session().client(caller_name, 
-                                                       region_name=region()))
-    return getattr(CLIENTS, caller_name)
+        setattr(CLIENTS, param_name, session().client(caller_name,
+                                                      region_name=client_region))
+    return getattr(CLIENTS, param_name)
 
-def get_resource():
-    caller_name = inspect.stack()[1][3]
-    if not hasattr(CLIENTS, caller_name):
+def get_resource(resource_region=None):
+    if not resource_region:
+        resource_region = region()
+    caller_name = inspect.stack()[1][3].split("_")[0]
+    param_name = resource_region + "_resource_" + caller_name
+    if not hasattr(CLIENTS, param_name):
         # region() has one benefit over default resolving - defaults to
         # ec2 instance region if on ec2 and otherwise unset
-        setattr(CLIENTS, caller_name,
-                session().resource(caller_name.split("_")[0], region_name=region()))
-    return getattr(CLIENTS, caller_name)
+        setattr(CLIENTS, param_name,
+                session().resource(caller_name, region_name=resource_region))
+    return getattr(CLIENTS, param_name)
 
-def ec2():
-    return get_client()
+def ec2(region=None):
+    return get_client(client_region=region)
 
-def sts():
-    return get_client()
+def sts(region=None):
+    return get_client(client_region=region)
 
-def logs():
-    return get_client()
+def logs(region=None):
+    return get_client(client_region=region)
 
-def cloudformation():
-    return get_client()
+def cloudformation(region=None):
+    return get_client(client_region=region)
 
-def cloudformation_resource():
-    return get_resource()
+def cloudformation_resource(region=None):
+    return get_resource(resource_region=region)
 
-def ec2_resource():
-    return get_resource()
+def ec2_resource(region=None):
+    return get_resource(resource_region=region)
 
-def s3():
-    return get_client()
+def s3(region=None):
+    return get_client(client_region=region)
 
-def s3_resource():
-    return get_resource()
+def s3_resource(region=None):
+    return get_resource(resource_region=region)
 
-def route53():
-    return get_client()
+def route53(region=None):
+    return get_client(client_region=region)
 
 def session():
     if not hasattr(CLIENTS, 'session'):
