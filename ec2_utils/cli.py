@@ -214,7 +214,7 @@ def detach_volume():
     parser.add_argument("mount_path", help="Mount point of the volume to be detached").completer = FilesCompleter()
     parser.add_argument("-d", "--delete", help="Delete volume after detaching",
                         action="store_true")
-    parser.add_argument("-i", "--volume-id", help="Eni id to detach").completer = ChoicesCompleter(info().volume_ids())
+    parser.add_argument("-i", "--volume-id", help="Volume id to detach").completer = ChoicesCompleter(info().volume_ids())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if is_ec2():
@@ -558,7 +558,7 @@ def stack_params_and_outputs():
                                                   " one parameter required")
     parser.add_argument("-s", "--stack-name", help="The name of the stack to show",
                         default=info().stack_name()).completer = \
-        ChoicesCompleter(stacks())
+        ChoicesCompleter(_best_effort_stacks())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     resp, _ = instance_info.stack_params_and_outputs_and_stack(stack_name=args.stack_name)
@@ -569,6 +569,12 @@ def stack_params_and_outputs():
             parser.error("Parameter " + args.parameter + " not found")
     else:
         print(json.dumps(resp, indent=2))
+
+def _best_effort_stacks():
+    try:
+        return stacks()
+    except:
+        return []
 
 def subnet_id():
     """ Get subnet id for instance
