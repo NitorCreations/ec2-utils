@@ -60,6 +60,15 @@ def s3_resource(region=None):
 def route53(region=None):
     return get_client(client_region=region)
 
+def cloudfront(region=None):
+    return get_client(client_region=region)
+
+def ecr(region=None):
+    return get_client(client_region=region)
+
+def organizations(region=None):
+    return get_client(client_region=region)
+
 def session():
     if not hasattr(CLIENTS, 'session'):
         CLIENTS.session = boto3.session.Session()
