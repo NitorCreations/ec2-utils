@@ -38,7 +38,6 @@ setup(name='ec2-utils',
           'requests',
           'termcolor',
           'argcomplete',
-          'psutil',
           'python-dateutil',
           'retry'
       ] + ([

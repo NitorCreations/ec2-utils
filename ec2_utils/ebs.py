@@ -18,7 +18,6 @@ from termcolor import colored
 import argcomplete
 import boto3
 from botocore.exceptions import ClientError
-import psutil
 from ec2_utils.clients import ec2, ec2_resource
 from ec2_utils.ec2 import find_include
 from ec2_utils.instance_info import resolve_account, info
@@ -425,9 +424,13 @@ def device_from_mount_path(mount_path):
                 volume = volume.replace("vol", "vol-")
             return attached_devices(volume)[0]
     else:
-        return [x for x in psutil.disk_partitions()
-                if x.mountpoint == mount_path][0].device
-
+        proc = Popen(["lsblk", "-lnpo", "NAME,MOUNTPOINT"], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        for line in output.split("\n"):
+            dev_and_mount = line.split()
+            if len(dev_and_mount) > 1 and dev_and_mount[1] == mount_path:
+                return dev_and_mount[0]
+        return None
 
 def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
     if tag_name and not isinstance(tag_name, list):
