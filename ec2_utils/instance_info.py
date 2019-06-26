@@ -251,7 +251,7 @@ class InstanceInfo(object):
         return ''
 
     def __str__(self):
-        return json.dumps(self._info, skipkeys=True)
+        return json.dumps(self._info, skipkeys=True, default=dthandler)
 
 @retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
 def _get_stack(stack_name, stack_region=None):
