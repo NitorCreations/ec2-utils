@@ -5,7 +5,7 @@ import time
 from ctypes import (
     Structure, Union, POINTER,
     pointer, get_errno, cast,
-    c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_int, c_uint16, c_uint32
+    c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_uint16, c_uint32
 )
 from retry import retry
 from ec2_utils.clients import ec2, ec2_resource, route53

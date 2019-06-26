@@ -3,7 +3,6 @@
 from __future__ import print_function
 from builtins import chr
 from builtins import str
-import argparse
 import time
 import json
 import sys
@@ -13,14 +12,11 @@ from subprocess import PIPE, Popen, CalledProcessError
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from dateutil import tz
-from dateutil.relativedelta import relativedelta
 from termcolor import colored
-import argcomplete
-import boto3
 from botocore.exceptions import ClientError
 from ec2_utils.clients import ec2, ec2_resource
 from ec2_utils.ec2 import find_include
-from ec2_utils.instance_info import resolve_account, info
+from ec2_utils.instance_info import info
 from ec2_utils.utils import delete_selected, prune_array, delete_object
 
 def letter_to_target_id(letter):
@@ -450,7 +446,6 @@ def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
     return filters
 
 def clean_snapshots(days, tags, dry_run=False):
-    account_id = resolve_account()
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
     newest_timestamp = newest_timestamp .replace(tzinfo=tz.UTC)
     filters = snapshot_filters(tag_value=tags)

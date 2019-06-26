@@ -1,5 +1,4 @@
 from builtins import str
-import glob
 import os
 import sys
 import signal

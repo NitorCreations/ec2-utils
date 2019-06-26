@@ -1,11 +1,9 @@
 import json
 import os
-import sys
-import requests
+from os.path import expanduser
 from requests.exceptions import ConnectionError
 import tempfile
 import time
-import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 from ec2_utils.clients import ec2, sts, is_ec2, region, cloudformation, \
     INSTANCE_IDENTITY_URL

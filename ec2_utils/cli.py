@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
-from ec2_utils import logs, clients, ebs, s3, interface, instance_info, utils
+from ec2_utils import logs, clients, ebs, interface, instance_info, utils
 from ec2_utils.clients import is_ec2, stacks
 from ec2_utils.s3 import prune_s3_object_versions
 
@@ -322,7 +322,7 @@ def list_attached_volumes():
     """
     parser = _get_parser()
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+    _ = parser.parse_args()
     if is_ec2():
         for volume_id in info().volume_ids():
             print(volume_id)
