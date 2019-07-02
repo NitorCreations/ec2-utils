@@ -16,6 +16,7 @@
 """
 import base64
 from os import environ
+
 cov = None
 if "EC2_UTILS_MEASURE_COVERAGE" in environ:
     from coverage import Coverage
@@ -108,3 +109,5 @@ def _to_bytes(data):
     if callable(encode_method):
         ret = data.encode("utf-8")
     return bytes(ret)
+
+    

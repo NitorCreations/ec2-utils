@@ -13,5 +13,3 @@ for test in $(ls tests/*.sh | sort); do
   fi
 done
 
-aws s3 cp .coverage s3://ec2-utils-test/coverage-lin-$1
-

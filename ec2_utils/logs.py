@@ -71,9 +71,9 @@ from termcolor import colored
 from threading import Event, Thread, BoundedSemaphore
 from botocore.compat import total_seconds
 from threading import Event, Lock, Thread
-from ec2_utils.clients import logs, cloudformation
 from ec2_utils.instance_info import info, wait_net_service
 from retry import retry
+from threadlocal_aws.clients import logs, cloudformation
 
 
 def millis2iso(millis):

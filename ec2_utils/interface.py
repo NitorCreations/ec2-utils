@@ -8,7 +8,8 @@ from ctypes import (
     c_ushort, c_byte, c_void_p, c_char_p, c_uint, c_int, c_uint16, c_uint32
 )
 from retry import retry
-from ec2_utils.clients import ec2, ec2_resource, route53
+from threadlocal_aws.clients import ec2, route53
+from threadlocal_aws.resources import ec2 as ec2_resource
 from ec2_utils.instance_info import info
 
 def associate_eip(eip=None, allocation_id=None, eip_param=None,

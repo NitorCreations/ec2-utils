@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
-from ec2_utils import logs, clients, ebs, s3, interface, instance_info, utils
-from ec2_utils.clients import is_ec2, stacks
+from ec2_utils import logs, ebs, s3, interface, instance_info, utils
 from ec2_utils.s3 import prune_s3_object_versions
+from threadlocal_aws import is_ec2, region as client_region
 
 SYS_ENCODING = locale.getpreferredencoding()
 
@@ -504,7 +504,7 @@ def region():
     """
     parser = _get_parser()
     parser.parse_args()
-    print(clients.region())
+    print(client_region())
 
 def register_private_dns():
     """ Register local private IP in route53 hosted zone usually for internal

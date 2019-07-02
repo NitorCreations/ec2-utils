@@ -11,6 +11,7 @@ from retry import retry
 from termcolor import colored
 from urllib3.util.retry import Retry
 from botocore.exceptions import ClientError, EndpointConnectionError
+from threadlocal_aws.resources import cloudformation
 
 def get_retry(url, retries=5, backoff_factor=0.3,
               status_forcelist=(500, 502, 504), session=None, timeout=5):
@@ -160,3 +161,6 @@ def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
 @retry(ClientError, tries=5, delay=1, backoff=3)
 def delete_object(obj):
     obj.delete()
+
+def stacks():
+    return [stack.name for stack in cloudformation().stacks.all()]

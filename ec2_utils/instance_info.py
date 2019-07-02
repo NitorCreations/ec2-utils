@@ -7,9 +7,9 @@ import tempfile
 import time
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
-from ec2_utils.clients import ec2, sts, is_ec2, region, cloudformation, \
-    INSTANCE_IDENTITY_URL
 from ec2_utils.utils import get_retry, wait_net_service
+from threadlocal_aws import INSTANCE_IDENTITY_URL, is_ec2, region
+from threadlocal_aws.clients import ec2, sts, cloudformation
 from retry import retry
 
 ACCOUNT_ID = None

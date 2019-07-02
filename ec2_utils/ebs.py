@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 from builtins import chr
 from builtins import str
 import argparse
@@ -16,13 +15,13 @@ from dateutil import tz
 from dateutil.relativedelta import relativedelta
 from termcolor import colored
 import argcomplete
-import boto3
 from botocore.exceptions import ClientError
 import psutil
-from ec2_utils.clients import ec2, ec2_resource
 from ec2_utils.ec2 import find_include
 from ec2_utils.instance_info import resolve_account, info
 from ec2_utils.utils import delete_selected, prune_array, delete_object
+from threadlocal_aws.clients import ec2
+from threadlocal_aws.resources import ec2 as ec2_resource
 
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5

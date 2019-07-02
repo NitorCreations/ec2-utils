@@ -1,4 +1,4 @@
-from ec2_utils.clients import s3_resource
+from threadlocal_aws.resources import s3 as s3_resource
 from ec2_utils.utils import prune_array, delete_selected
 
 def prune_s3_object_versions(bucket=None, prefix="", ten_minutely=288, hourly=168,
