@@ -1,4 +1,3 @@
-from __future__ import division
 # Copyright 2017-2018 Nitor Creations Oy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -69,9 +68,10 @@ from dateutil.tz import tzutc
 from termcolor import colored
 from threading import Event, Lock, Thread, BoundedSemaphore
 from botocore.compat import total_seconds
-from ec2_utils.clients import logs
+from threading import Event, Lock, Thread
 from ec2_utils.instance_info import info
 from retry import retry
+from threadlocal_aws.clients import logs, cloudformation
 
 
 def millis2iso(millis):
