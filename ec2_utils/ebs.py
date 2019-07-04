@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from dateutil import tz
 from termcolor import colored
 from botocore.exceptions import ClientError
-import psutil
 from ec2_utils.ec2 import find_include
 from ec2_utils.instance_info import info
 from ec2_utils.utils import delete_selected, prune_array, delete_object

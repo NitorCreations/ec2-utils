@@ -55,10 +55,7 @@ import sys
 import time
 import re
 import queue
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
-from builtins import object
+from builtins import object, range
 from past.utils import old_div
 from collections import deque
 from datetime import datetime, timedelta
