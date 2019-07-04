@@ -322,7 +322,7 @@ def list_attached_volumes():
     """
     parser = _get_parser()
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+    _ = parser.parse_args()
     if is_ec2():
         for volume_id in info().volume_ids():
             print(volume_id)

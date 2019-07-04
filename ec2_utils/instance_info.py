@@ -1,11 +1,9 @@
 import json
 import os
-import sys
-import requests
+from os.path import expanduser
 from requests.exceptions import ConnectionError
 import tempfile
 import time
-import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 from ec2_utils.utils import get_retry, wait_net_service
 from threadlocal_aws import INSTANCE_IDENTITY_URL, is_ec2, region
@@ -251,7 +249,7 @@ class InstanceInfo(object):
         return ''
 
     def __str__(self):
-        return json.dumps(self._info, skipkeys=True)
+        return json.dumps(self._info, skipkeys=True, default=dthandler)
 
 @retry((ConnectionError, EndpointConnectionError), tries=10, delay=1)
 def _get_stack(stack_name, stack_region=None):

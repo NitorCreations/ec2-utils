@@ -2,7 +2,6 @@
 
 from builtins import chr
 from builtins import str
-import argparse
 import time
 import json
 import sys
@@ -12,13 +11,11 @@ from subprocess import PIPE, Popen, CalledProcessError
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from dateutil import tz
-from dateutil.relativedelta import relativedelta
 from termcolor import colored
-import argcomplete
 from botocore.exceptions import ClientError
 import psutil
 from ec2_utils.ec2 import find_include
-from ec2_utils.instance_info import resolve_account, info
+from ec2_utils.instance_info import info
 from ec2_utils.utils import delete_selected, prune_array, delete_object
 from threadlocal_aws.clients import ec2
 from threadlocal_aws.resources import ec2 as ec2_resource
@@ -424,9 +421,13 @@ def device_from_mount_path(mount_path):
                 volume = volume.replace("vol", "vol-")
             return attached_devices(volume)[0]
     else:
-        return [x for x in psutil.disk_partitions()
-                if x.mountpoint == mount_path][0].device
-
+        proc = Popen(["lsblk", "-lnpo", "NAME,MOUNTPOINT"], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        for line in output.split("\n"):
+            dev_and_mount = line.split()
+            if len(dev_and_mount) > 1 and dev_and_mount[1] == mount_path:
+                return dev_and_mount[0]
+        return None
 
 def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
     if tag_name and not isinstance(tag_name, list):
@@ -446,7 +447,6 @@ def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
     return filters
 
 def clean_snapshots(days, tags, dry_run=False):
-    account_id = resolve_account()
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
     newest_timestamp = newest_timestamp .replace(tzinfo=tz.UTC)
     filters = snapshot_filters(tag_value=tags)

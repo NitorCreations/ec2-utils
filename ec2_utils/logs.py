@@ -1,4 +1,3 @@
-from __future__ import division
 # Copyright 2017-2018 Nitor Creations Oy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -61,17 +60,16 @@ standard_library.install_aliases()
 from builtins import range
 from builtins import object
 from past.utils import old_div
-from botocore.exceptions import ClientError
 from collections import deque
 from datetime import datetime, timedelta
 from dateutil import tz
 from dateutil.parser import parse
 from dateutil.tz import tzutc
 from termcolor import colored
-from threading import Event, Thread, BoundedSemaphore
+from threading import Event, Lock, Thread, BoundedSemaphore
 from botocore.compat import total_seconds
 from threading import Event, Lock, Thread
-from ec2_utils.instance_info import info, wait_net_service
+from ec2_utils.instance_info import info
 from retry import retry
 from threadlocal_aws.clients import logs, cloudformation
 

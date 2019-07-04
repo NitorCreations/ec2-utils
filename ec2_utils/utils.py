@@ -1,4 +1,3 @@
-import json
 import requests
 import sys
 import time
@@ -6,7 +5,6 @@ from datetime import datetime, timedelta
 from dateutil import tz
 from dateutil.relativedelta import relativedelta
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ConnectionError
 from retry import retry
 from termcolor import colored
 from urllib3.util.retry import Retry
@@ -122,7 +120,6 @@ def _start_of_year(date):
 
 def _select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
     groups = {}
-    prev = None
     for obj in obects:
         obj_time = time_func(obj)
         obj_group = group_by_func(obj)
