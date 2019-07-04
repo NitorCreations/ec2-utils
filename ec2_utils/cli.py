@@ -10,8 +10,9 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
-from ec2_utils import logs, ebs, s3, interface, instance_info, utils
+from ec2_utils import ebs, instance_info, interface, logs, utils
 from ec2_utils.s3 import prune_s3_object_versions
+from ec2_utils.utils import best_effort_stacks
 from threadlocal_aws import is_ec2, region as client_region
 
 SYS_ENCODING = locale.getpreferredencoding()
@@ -558,7 +559,7 @@ def stack_params_and_outputs():
                                                   " one parameter required")
     parser.add_argument("-s", "--stack-name", help="The name of the stack to show",
                         default=info().stack_name()).completer = \
-        ChoicesCompleter(_best_effort_stacks())
+        ChoicesCompleter(best_effort_stacks())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     resp, _ = instance_info.stack_params_and_outputs_and_stack(stack_name=args.stack_name)
@@ -569,12 +570,6 @@ def stack_params_and_outputs():
             parser.error("Parameter " + args.parameter + " not found")
     else:
         print(json.dumps(resp, indent=2))
-
-def _best_effort_stacks():
-    try:
-        return stacks()
-    except:
-        return []
 
 def subnet_id():
     """ Get subnet id for instance

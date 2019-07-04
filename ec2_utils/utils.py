@@ -159,5 +159,11 @@ def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
 def delete_object(obj):
     obj.delete()
 
+def best_effort_stacks():
+    try:
+        return stacks()
+    except:
+        return []
+
 def stacks():
     return [stack.name for stack in cloudformation().stacks.all()]

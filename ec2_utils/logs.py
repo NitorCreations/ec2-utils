@@ -68,7 +68,7 @@ from botocore.compat import total_seconds
 from threading import Event, Lock, Thread
 from ec2_utils.instance_info import info
 from retry import retry
-from threadlocal_aws.clients import logs, cloudformation
+from threadlocal_aws.clients import logs
 
 
 def millis2iso(millis):
