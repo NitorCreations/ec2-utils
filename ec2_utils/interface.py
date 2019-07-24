@@ -1,5 +1,6 @@
 import ctypes.util
 import ctypes
+import win_inet_pton
 from socket import AF_INET, AF_INET6, inet_ntop
 import time
 from ctypes import (
