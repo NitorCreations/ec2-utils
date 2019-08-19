@@ -223,6 +223,18 @@ def detach_volume():
     else:
         parser.error("Only makes sense on an EC2 instance")
 
+def first_ext_ip():
+    """ Get the first IP address attached to the instance that is not localhost """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    for iface in interface.get_network_interfaces():
+        ip_addr = iface.addresses.get(interface.AF_INET)[0]
+        if ip_addr and not ip_addr.startswith("127."):
+            print(ip_addr)
+            return
+    sys.exit(1)
+
 def get_tag():
     """ Get the value of a tag for an ec2 instance
     """
