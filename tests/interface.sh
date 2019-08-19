@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-ec2 first-ext-ip | | grep '192\.168\.'
+ec2 first-ext-ip | grep '192\.168\.'
 ENI=$(ec2 attach-eni)
 echo $ENI | egrep '^eni-[0-9a-f]{13,26}$'
 ec2 list-attached-enis
