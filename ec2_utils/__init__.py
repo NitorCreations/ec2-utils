@@ -54,6 +54,7 @@ EC2_ONLY = [
     'get-tag=ec2_utils.cli:get_tag',
     'get-userdata=ec2_utils.cli:get_userdata',
     'instance-id=ec2_utils.cli:instance_id',
+    'largest-unmounted-device=ec2_utils.cli:largest_unmounted_device',
     'latest-snapshot=ec2_utils.cli:latest_snapshot',
     'list-attachable-enis=ec2_utils.cli:list_attachable_enis',
     'list-attached-enis=ec2_utils.cli:list_attached_enis',

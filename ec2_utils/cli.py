@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
-from ec2_utils import ebs, instance_info, interface, logs, utils
+from ec2_utils import block_devices, ebs, instance_info, interface, logs, utils
 from ec2_utils.s3 import prune_s3_object_versions
 from ec2_utils.utils import best_effort_stacks
 from threadlocal_aws import is_ec2, region as client_region
@@ -279,6 +279,15 @@ def instance_id():
         print(info().instance_id())
     else:
         parser.error("Only makes sense on an EC2 instance")
+
+def largest_unmounted_device():
+    """ Get the largest block device that is currently not mounted """
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    parser.parse_args()
+    devs = block_devices.linux_unmounted_block_devices_largest_first()
+    if devs:
+        print(devs[0][0])
 
 def latest_snapshot():
     """Get the latest snapshot with a given tag
