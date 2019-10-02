@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
-from ec2_utils import block_devices, ebs, instance_info, interface, logs, utils
+from ec2_utils import block_devices, ebs, instance_info, interface, logs, utils, ecs
 from ec2_utils.s3 import prune_s3_object_versions
 from ec2_utils.utils import best_effort_stacks
 from threadlocal_aws import is_ec2, region as client_region
@@ -222,6 +222,14 @@ def detach_volume():
         ebs.detach_volume(args.mount_path, delete_volume=args.delete)
     else:
         parser.error("Only makes sense on an EC2 instance")
+
+def ecs_private_ip():
+    """ Get the private IP address of the container. Represents an ENI in the case of awsvpc networking
+    and the private interface of the EC2 instance in the case of host networkin"""
+    parser = _get_parser()
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    print(ecs.get_private_ip())
 
 def first_ext_ip():
     """ Get the first IP address attached to the instance that is not localhost """

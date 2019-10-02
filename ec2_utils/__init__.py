@@ -49,6 +49,7 @@ EC2_ONLY = [
     'create-eni=ec2_utils.cli:create_eni',
     'detach-volume=ec2_utils.cli:detach_volume',
     'detach-eni=ec2_utils.cli:detach_eni',
+    'ecs-private-ip=ec2_utils.cli:ecs_private_ip',
     'first-ext-ip=ec2_utils.cli:first_ext_ip',
     'get-latest-snapshot=ec2_utils.cli:latest_snapshot',
     'get-tag=ec2_utils.cli:get_tag',

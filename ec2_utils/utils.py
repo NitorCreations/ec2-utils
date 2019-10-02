@@ -167,3 +167,10 @@ def best_effort_stacks():
 
 def stacks():
     return [stack.name for stack in cloudformation().stacks.all()]
+
+def get_file_content(filename):
+    with open(filename, "r") as f:
+        return f.read()
+
+def contains_key(dct, keyname):
+    return keyname in dct and dct[keyname]
