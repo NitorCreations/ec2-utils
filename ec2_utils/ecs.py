@@ -5,7 +5,6 @@ from ec2_utils.utils import contains_key, get_file_content
 
 def get_private_ip():
     metadata = requests.get(environ["ECS_CONTAINER_METADATA_URI"]).json()
-    print(json.dumps(metadata, indent=2))
     if not metadata:
         return None
                         
