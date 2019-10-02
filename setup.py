@@ -1,4 +1,4 @@
-# Copyright 20.16 Nitor Creations Oy
+# Copyright 20.17 Nitor Creations Oy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@ from setuptools import setup
 from ec2_utils import CONSOLESCRIPTS
 
 setup(name='ec2-utils',
-      version='0.16',
+      version='0.17',
       description='Tools for using on an ec2 instance',
       url='http://github.com/NitorCreations/ec2-utils',
-      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.16',
+      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.17',
       author='Pasi Niemi',
       author_email='pasi@nitor.com',
       license='Apache 2.0',
