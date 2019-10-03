@@ -545,9 +545,10 @@ def register_private_dns():
     parser.add_argument("hosted_zone", help="The name of the hosted zone to update")
     parser.add_argument("-t", "--ttl", help="Time to live for the record. 60 by default",
                         default="60")
+    parser.add_argument("-p", "--private-ip", help="Private IP address to register")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    interface.register_private_dns(args.dns_name, args.hosted_zone, ttl=args.ttl)
+    interface.register_private_dns(args.dns_name, args.hosted_zone, ttl=args.ttl, private_ip=args.private_ip)
 
 def snapshot_from_volume():
     """ Create a snapshot of a volume identified by it's mount path

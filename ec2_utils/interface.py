@@ -89,11 +89,15 @@ def _retry_eni_status(eni_id, status):
         raise Exception("eni " + eni_id + " not " + status)
     return iface
 
-def register_private_dns(dns_name, hosted_zone, ttl=None):
+def register_private_dns(dns_name, hosted_zone, ttl=None, private_ip=None):
     if not ttl:
         ttl=60
     else:
         ttl=int(ttl)
+
+    if not private_ip:
+        private_ip = info().private_ip()
+
     zone_id = None
     zone_paginator = route53().get_paginator("list_hosted_zones")
     for page in zone_paginator.paginate():
@@ -115,7 +119,7 @@ def register_private_dns(dns_name, hosted_zone, ttl=None):
                     "TTL": ttl,
                     "ResourceRecords": [
                         {
-                            "Value": info().private_ip()
+                            "Value": private_ip
                         }
                     ]
                 }
