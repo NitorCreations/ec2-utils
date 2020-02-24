@@ -40,7 +40,7 @@ setup(name='ec2-utils',
           'argcomplete',
           'python-dateutil',
           'retry',
-          'win-inet-pton'
+          'netifaces'
       ] + ([
           'win-unicode-console',
           'wmi',

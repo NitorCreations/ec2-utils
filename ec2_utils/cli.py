@@ -6,6 +6,7 @@ import json
 import locale
 import sys
 import time
+import netifaces
 from datetime import datetime, timedelta
 from dateutil.tz import tzutc
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
@@ -236,10 +237,10 @@ def first_ext_ip():
     parser = _get_parser()
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    for iface in interface.get_network_interfaces():
-        ip_addr = iface.addresses.get(interface.AF_INET)[0]
-        if ip_addr and not ip_addr.startswith("127."):
-            print(ip_addr)
+    for iface in netifaces.interfaces():
+        addresses = netifaces.ifaddresses(iface)
+        if netifaces.AF_INET in addresses and addresses[netifaces.AF_INET] and "addr" in addresses[netifaces.AF_INET][0] and not addresses[netifaces.AF_INET][0]["addr"].startswith("127."):
+            print(addresses[netifaces.AF_INET][0]["addr"])
             return
     sys.exit(1)
 
@@ -381,13 +382,17 @@ def list_local_interfaces():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     to_print={}
-    for iface in interface.get_network_interfaces():
+    for iface in netifaces.interfaces():
+        addresses = netifaces.ifaddresses(iface)
         if args.json:
-            to_print[iface.name] = { "index": iface.index,
-                                     "ipv4":  iface.addresses.get(interface.AF_INET),
-                                     "ipv6": iface.addresses.get(interface.AF_INET6) }
+            if not iface in to_print:
+                to_print[iface] = {}
+            if netifaces.AF_INET in addresses:
+                to_print[iface]["ipv4"] = addresses[netifaces.AF_INET]
+            if netifaces.AF_INET6 in addresses:
+                to_print[iface]["ipv6"] = addresses[netifaces.AF_INET6]
         else:
-            print(iface)
+            print(iface + ": " + str(addresses))
     if to_print:
         print(json.dumps(to_print, indent=2))
 
