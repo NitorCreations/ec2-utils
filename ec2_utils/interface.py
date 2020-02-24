@@ -162,7 +162,11 @@ struct_ifaddrs._fields_ = [
     ('ifa_ifu', union_ifa_ifu),
     ('ifa_data', c_void_p),]
 
-libc = ctypes.CDLL(ctypes.util.find_library('c'))
+c_lib_name = ctypes.util.find_library('c')
+libc = ctypes.CDLL(c_lib_name) if c_lib_name is not None else None
+if c_lib_name is None:
+    print('WARNING: EC2_utils could not locate c library, only limited functionality available')
+
 
 def ifap_iter(ifap):
     ifa = ifap.contents
