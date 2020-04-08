@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from dateutil import tz
 from termcolor import colored
 from botocore.exceptions import ClientError
+from ec2_utils import _to_str
 from ec2_utils.ec2 import find_include
 from ec2_utils.instance_info import info
 from ec2_utils.utils import delete_selected, prune_array, delete_object
@@ -324,7 +325,7 @@ def volume_id_from_device(device):
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
         out = proc.communicate()[0]
-        for nvme_line in out.split("\n"):
+        for nvme_line in _to_str(out).split("\n"):
             if nvme_line.startswith("sn"):
                 volume_id = nvme_line.split()[2]
                 if "vol-" not in volume_id:
@@ -350,7 +351,7 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
         out = proc.communicate()[0]
-        for nvme_line in out.split("\n"):
+        for nvme_line in _to_str(out).split("\n"):
             if nvme_line.startswith("sn"):
                 volume_id = nvme_line.split()[2]
                 if "vol-" not in volume_id:
@@ -402,10 +403,10 @@ def map_local_device(volume, device):
     vol2 = volume.replace("-", "")
     proc = Popen(["lsblk", "-lnpo", "NAME"], stdout=PIPE, stderr=PIPE)
     output = proc.communicate()[0]
-    for line in output.split("\n"):
+    for line in _to_str(output).split("\n"):
         proc = Popen(["nvme", "id-ctrl", line], stdout=PIPE, stderr=PIPE)
         out = proc.communicate()[0]
-        for nvme_line in out.split("\n"):
+        for nvme_line in _to_str(out).split("\n"):
             if nvme_line.startswith("sn"):
                 if nvme_line.split()[2] == volume or nvme_line.split()[2] == vol2:
                     return line
@@ -426,7 +427,7 @@ def device_from_mount_path(mount_path):
     else:
         proc = Popen(["lsblk", "-lnpo", "NAME,MOUNTPOINT"], stdout=PIPE, stderr=PIPE)
         output = proc.communicate()[0]
-        for line in output.split("\n"):
+        for line in _to_str(output).split("\n"):
             dev_and_mount = line.split()
             if len(dev_and_mount) > 1 and dev_and_mount[1] == mount_path:
                 return dev_and_mount[0]
