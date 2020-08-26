@@ -33,7 +33,7 @@ setup(name='ec2-utils',
       ],
       install_requires=[
           'future',
-          'threadlocal-aws==0.7',
+          'threadlocal-aws==0.8',
           'awscli',
           'requests',
           'termcolor',
