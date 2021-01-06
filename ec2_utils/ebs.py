@@ -108,7 +108,7 @@ def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
     else:
         if not size_gb:
             size_gb = 32
-        print("Creating empty volyme of size " + str(size_gb))
+        print("Creating empty volume of size " + str(size_gb))
         volume = create_empty_volume(size_gb,
                                      availability_zone=availability_zone)
     tag_volume(volume, tag_key, tag_value, tags, copytags,
