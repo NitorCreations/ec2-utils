@@ -213,14 +213,17 @@ def detach_volume():
     """ Create a snapshot of a volume identified by it's mount path
     """
     parser = _get_parser()
-    parser.add_argument("mount_path", help="Mount point of the volume to be detached").completer = FilesCompleter()
-    parser.add_argument("-d", "--delete", help="Delete volume after detaching",
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-m" , "--mount-path", help="Mount point of the volume to be detached").completer = FilesCompleter()
+    group.add_argument("-i", "--volume-id", help="Volume id to detach").completer = ChoicesCompleter(info().volume_ids())
+    group.add_argument("-d", "--device", help="Device to detach").completer = ChoicesCompleter(info().volume_ids())
+    parser.add_argument("-x", "--delete", help="Delete volume after detaching",
                         action="store_true")
-    parser.add_argument("-i", "--volume-id", help="Volume id to detach").completer = ChoicesCompleter(info().volume_ids())
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if is_ec2():
-        ebs.detach_volume(args.mount_path, delete_volume=args.delete)
+        ebs.detach_volume(mount_path=args.mount_path, volume_id=args.volume_id,
+                          device=args.device, delete_volume=args.delete)
     else:
         parser.error("Only makes sense on an EC2 instance")
 

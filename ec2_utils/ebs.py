@@ -307,21 +307,29 @@ def delete_on_termination(device_path):
                                         "Ebs": {"DeleteOnTermination": True}}])
 
 
-def detach_volume(mount_path, delete_volume=False, volume_id=None):
+def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=False):
     instance_id = info().instance_id()
-    if not volume_id:
-        device = device_from_mount_path(mount_path)
+    if mount_path:
+        if not device:
+            device = device_from_mount_path(mount_path)
+        proc = Popen(["umount", "-f", mount_path], stdout=PIPE, stderr=PIPE)
+        out = proc.communicate()[0]
+
+    if not volume_id and device:
         volume_id = volume_id_from_device(device)
-    proc = Popen(["umount", "-f", mount_path], stdout=PIPE, stderr=PIPE)
-    out = proc.communicate()[0]
-    ec2().detach_volume(VolumeId=volume_id, InstanceId=instance_id)
-    if delete_volume:
-        wait_for_volume_status(volume_id, "available")
-        ec2().delete_volume(VolumeId=volume_id)
+
+    if volume_id:
+        ec2().detach_volume(VolumeId=volume_id, InstanceId=instance_id)
+        if delete_volume:
+            wait_for_volume_status(volume_id, "available")
+            ec2().delete_volume(VolumeId=volume_id)
+    else:
+        raise Exception("Failed to resolve volume id for " + str(mount_path))
     info().clear_cache()
 
 
 def volume_id_from_device(device):
+    volume_id = None
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
         out = proc.communicate()[0]
@@ -338,6 +346,7 @@ def volume_id_from_device(device):
                                                     {"Name": "attachment.instance-id",
                                                     "Values": [instance_id]}])
         volume_id = volume['Volumes'][0]['VolumeId']
+    return volume_id
 
 def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},
                     copytags=[], ignore_missing_copytags=False):
