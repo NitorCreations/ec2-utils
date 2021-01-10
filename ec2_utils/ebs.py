@@ -306,7 +306,6 @@ def delete_on_termination(device_path):
                                         "DeviceName": device_path,
                                         "Ebs": {"DeleteOnTermination": True}}])
 
-
 def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=False):
     instance_id = info().instance_id()
     if mount_path:
@@ -324,9 +323,23 @@ def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=Fa
             wait_for_volume_status(volume_id, "available")
             ec2().delete_volume(VolumeId=volume_id)
     else:
-        raise Exception("Failed to resolve volume id for " + str(mount_path))
+        raise Exception("Failed to resolve volume id for mount path: " + str(mount_path) + " device: " + str(device))
     info().clear_cache()
 
+def volume_info(mount_path=None, device=None, volume_id=None):
+    instance_id = info().instance_id()
+    if mount_path and not (device or volume_id):
+        device = device_from_mount_path(mount_path)
+
+    if device and not volume_id:
+        volume_id = volume_id_from_device(device)
+
+    if volume_id:
+        res = ec2().describe_volumes(VolumeIds=[volume_id])
+        if "Volumes" in res and res["Volumes"]:
+            return res["Volumes"][0]
+    else:
+        raise Exception("Failed to resolve volume id for mount path: " + str(mount_path) + " device: " + str(device))
 
 def volume_id_from_device(device):
     volume_id = None

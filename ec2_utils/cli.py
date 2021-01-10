@@ -9,6 +9,7 @@ import time
 import netifaces
 from datetime import datetime, timedelta
 from dateutil.tz import tzutc
+from jmespath import search
 from argcomplete.completers import ChoicesCompleter, FilesCompleter
 from ec2_utils.instance_info import info
 from ec2_utils import block_devices, ebs, instance_info, interface, logs, utils, ecs
@@ -224,6 +225,32 @@ def detach_volume():
     if is_ec2():
         ebs.detach_volume(mount_path=args.mount_path, volume_id=args.volume_id,
                           device=args.device, delete_volume=args.delete)
+    else:
+        parser.error("Only makes sense on an EC2 instance")
+
+def volume_info():
+    """ Get information about an EBS volume via a mountpoint, device or volume-id """
+    parser = _get_parser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-m" , "--mount-path", help="Mount point of the volume to be detached").completer = FilesCompleter()
+    group.add_argument("-i", "--volume-id", help="Volume id to detach").completer = ChoicesCompleter(info().volume_ids())
+    group.add_argument("-d", "--device", help="Device to detach").completer = ChoicesCompleter(info().volume_ids())
+    parser.add_argument("-j", "--jmespath", help="A jemspath expression to get a specific piece of info from volume")
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    if is_ec2():
+        vol_info = ebs.volume_info(mount_path=args.mount_path, volume_id=args.volume_id,
+                                   device=args.device)
+        if vol_info:
+            if args.jmespath:
+                vol_info = search(args.jmespath, vol_info)
+            if isinstance(vol_info, dict):
+                print(json.dumps(vol_info, indent=2, default=dthandler))
+            else:
+                print(str(vol_info))
+        else:
+            print("No volume info found")
+            exit(1)
     else:
         parser.error("Only makes sense on an EC2 instance")
 

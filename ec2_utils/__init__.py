@@ -74,6 +74,7 @@ EC2_ONLY = [
     'stack-params-and-outputs=ec2_utils.cli:stack_params_and_outputs',
     'subnet-id=ec2_utils.cli:subnet_id',
     'volume-from-snapshot=ec2_utils.cli:volume_from_snapshot',
+    'volume-info=ec2_utils.cli:volume_info',
     'wait-for-metadata=ec2_utils.cli:wait_for_metadata'
 ]
 CONSOLE_ONLY = [

@@ -40,7 +40,8 @@ setup(name='ec2-utils',
           'argcomplete',
           'python-dateutil',
           'retry',
-          'netifaces'
+          'netifaces',
+          'jmespath'
       ] + ([
           'win-unicode-console',
           'wmi',
