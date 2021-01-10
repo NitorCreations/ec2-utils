@@ -11,7 +11,7 @@ ec2 snapshot-from-volume ec2-testing-ss ec2-testing-ss F -w -i -t foo=bar -c 'te
 ec2 clean-snapshots ec2-testing-ss -t 1 | grep Skipping
 ec2 prune-snapshots -n ec2-testing-ss -M 1 -H 0 -d 0 -w 0 -m 0 -y 0 | grep Skipping
 ec2 prune-snapshots -n ec2-testing-ss | grep Skipping
-ec2 detach-volume F -x
+ec2 detach-volume -m F -x
 
 aws s3 cp .coverage s3://ec2-utils-test/coverage-win-$build
 
