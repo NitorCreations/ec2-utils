@@ -118,9 +118,9 @@ def _start_of_month(date):
 def _start_of_year(date):
     return date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
-def _select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
+def _select_kept(keep, objects, time_func, group_by_func, start_func, end, now):
     groups = {}
-    for obj in obects:
+    for obj in objects:
         obj_time = time_func(obj)
         obj_group = group_by_func(obj)
         if obj_group not in groups:
@@ -130,8 +130,8 @@ def _select_kept(keep, obects, time_func, group_by_func, start_func, end, now):
            and (obj_time > end or end > now):
             keep.add(obj)
         groups[obj_group]["prev"] = groups[obj_group]["curr"]
-    if obj_time < end:
-        return
+        if obj_time and obj_time < end:
+            return
 
 def delete_selected(full_array, deleted, name_func, time_func, dry_run=False):
     has_deleted = False
