@@ -99,18 +99,19 @@ def disk_by_drive_letter(drive_letter):
 
 def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
                          size_gb=None, del_on_termination=True, tags=[], copytags=[],
-                         ignore_missing_copytags=False):
+                         ignore_missing_copytags=False, encrypted=True):
     snapshot = get_latest_snapshot(tag_key, tag_value)
     if snapshot:
         print("Found snapshot " + snapshot.id)
         volume = create_volume(snapshot.id, availability_zone=availability_zone,
-                               size_gb=size_gb)
+                               size_gb=size_gb, encrypted=encrypted)
     else:
         if not size_gb:
             size_gb = 32
         print("Creating empty volume of size " + str(size_gb))
         volume = create_empty_volume(size_gb,
-                                     availability_zone=availability_zone)
+                                     availability_zone=availability_zone,
+                                     encrypted=encrypted)
     tag_volume(volume, tag_key, tag_value, tags, copytags,
                ignore_missing_copytags=ignore_missing_copytags)
     device = first_free_device()
@@ -228,9 +229,10 @@ def get_latest_snapshot(tag_name, tag_value):
         return None
 
 
-def create_volume(snapshot_id, availability_zone=None, size_gb=None):
+def create_volume(snapshot_id, availability_zone=None, size_gb=None, encrypted=True):
     args = {'SnapshotId': snapshot_id,
-            'VolumeType': 'gp2'}
+            'VolumeType': 'gp2',
+            'Encrypted': encrypted}
     if not availability_zone:
         availability_zone = info().availability_zone()
     args['AvailabilityZone'] = availability_zone
@@ -241,9 +243,10 @@ def create_volume(snapshot_id, availability_zone=None, size_gb=None):
     return resp['VolumeId']
 
 
-def create_empty_volume(size_gb, availability_zone=None):
+def create_empty_volume(size_gb, availability_zone=None, encrypted=True):
     args = {'Size': size_gb,
-            'VolumeType': 'gp2'}
+            'VolumeType': 'gp2',
+            'Encrypted': encrypted}
     if not availability_zone:
         availability_zone = info().availability_zone()
     args['AvailabilityZone'] = availability_zone

@@ -667,6 +667,7 @@ def volume_from_snapshot():
     parser.add_argument("-c", "--copytags", nargs="*", help="Tag to copy to the volume from instance. Multiple values allowed.")
     parser.add_argument("-t", "--tags", nargs="*", help="Tag to add to the volume in the format name=value. Multiple values allowed.")
     parser.add_argument("-i", "--ignore-missing-copytags", action="store_true", help="If set, missing copytags are ignored.")
+    parser.add_argument("-u", "--unencrypted", action="store_false", help="If set, create unencrypted volume")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     tags = {}
@@ -682,7 +683,8 @@ def volume_from_snapshot():
                                  size_gb=args.size_gb,
                                  del_on_termination=not args.no_delete_on_termination,
                                  copytags=args.copytags, tags=tags,
-                                 ignore_missing_copytags=args.ignore_missing_copytags)
+                                 ignore_missing_copytags=args.ignore_missing_copytags,
+                                 encrypted=args.unencrypted)
     else:
         parser.error("Only makes sense on an EC2 instance")
 
