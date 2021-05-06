@@ -40,7 +40,7 @@ setup(name='ec2-utils',
           'console_scripts': CONSOLESCRIPTS,
       },
       setup_requires=[
-          'pytest-runner=5.2'
+          'pytest-runner==5.2'
       ],
       install_requires=[
           'future',
