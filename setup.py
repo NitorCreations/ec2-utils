@@ -22,7 +22,6 @@ elif sys.version_info[0] == 3:
     if sys.version_info[1] == 5:
         python2_or_3_test_deps.insert(0, "pytest==6.1.2")
         python2_or_3_test_deps.append('importlib-metadata==2.1.1')
-        python2_or_3_test_deps.append('pytest-runner==5.2')
     else:
         python2_or_3_test_deps.insert(0, "pytest")
 
@@ -39,9 +38,6 @@ setup(name='ec2-utils',
       entry_points={
           'console_scripts': CONSOLESCRIPTS,
       },
-      setup_requires=[
-          'pytest-runner==5.2'
-      ],
       install_requires=[
           'future',
           'threadlocal-aws==0.8',
