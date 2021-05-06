@@ -668,6 +668,9 @@ def volume_from_snapshot():
     parser.add_argument("-t", "--tags", nargs="*", help="Tag to add to the volume in the format name=value. Multiple values allowed.")
     parser.add_argument("-i", "--ignore-missing-copytags", action="store_true", help="If set, missing copytags are ignored.")
     parser.add_argument("-u", "--unencrypted", action="store_false", help="If set, create unencrypted volume")
+    volume_type_arg = parser.add_mutually_exclusive_group(required=False)
+    volume_type_arg.add_argument("--gp2", action="store_true", help="GP2 volume type (default)")
+    volume_type_arg.add_argument("--gp3", action="store_true", help="GP3 volume type")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     tags = {}
@@ -678,13 +681,18 @@ def volume_from_snapshot():
                 tags[key] = value
             except ValueError:
                 parser.error("Invalid tag/value input: " + tag)
+    if args.gp3:
+        volume_type = "gp3"
+    else:
+        volume_type = "gp2"
     if is_ec2():
         ebs.volume_from_snapshot(args.tag_key, args.tag_value, args.mount_path,
                                  size_gb=args.size_gb,
                                  del_on_termination=not args.no_delete_on_termination,
                                  copytags=args.copytags, tags=tags,
                                  ignore_missing_copytags=args.ignore_missing_copytags,
-                                 encrypted=args.unencrypted)
+                                 encrypted=args.unencrypted,
+                                 volume_type=volume_type)
     else:
         parser.error("Only makes sense on an EC2 instance")
 

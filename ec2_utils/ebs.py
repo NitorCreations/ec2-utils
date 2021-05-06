@@ -99,19 +99,22 @@ def disk_by_drive_letter(drive_letter):
 
 def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
                          size_gb=None, del_on_termination=True, tags=[], copytags=[],
-                         ignore_missing_copytags=False, encrypted=True):
+                         ignore_missing_copytags=False, encrypted=True,
+                         volume_type="gp2"):
     snapshot = get_latest_snapshot(tag_key, tag_value)
     if snapshot:
         print("Found snapshot " + snapshot.id)
         volume = create_volume(snapshot.id, availability_zone=availability_zone,
-                               size_gb=size_gb, encrypted=encrypted)
+                               size_gb=size_gb, encrypted=encrypted,
+                               volume_type=volume_type)
     else:
         if not size_gb:
             size_gb = 32
         print("Creating empty volume of size " + str(size_gb))
         volume = create_empty_volume(size_gb,
                                      availability_zone=availability_zone,
-                                     encrypted=encrypted)
+                                     encrypted=encrypted,
+                                     volume_type=volume_type)
     tag_volume(volume, tag_key, tag_value, tags, copytags,
                ignore_missing_copytags=ignore_missing_copytags)
     device = first_free_device()
@@ -229,9 +232,9 @@ def get_latest_snapshot(tag_name, tag_value):
         return None
 
 
-def create_volume(snapshot_id, availability_zone=None, size_gb=None, encrypted=True):
+def create_volume(snapshot_id, availability_zone=None, size_gb=None, encrypted=True, volume_type='gp2'):
     args = {'SnapshotId': snapshot_id,
-            'VolumeType': 'gp2',
+            'VolumeType': volume_type,
             'Encrypted': encrypted}
     if not availability_zone:
         availability_zone = info().availability_zone()
@@ -243,9 +246,9 @@ def create_volume(snapshot_id, availability_zone=None, size_gb=None, encrypted=T
     return resp['VolumeId']
 
 
-def create_empty_volume(size_gb, availability_zone=None, encrypted=True):
+def create_empty_volume(size_gb, availability_zone=None, encrypted=True, volume_type='gp2'):
     args = {'Size': size_gb,
-            'VolumeType': 'gp2',
+            'VolumeType': volume_type,
             'Encrypted': encrypted}
     if not availability_zone:
         availability_zone = info().availability_zone()
