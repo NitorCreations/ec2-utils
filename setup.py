@@ -1,4 +1,4 @@
-# Copyright 20.26 Nitor Creations Oy
+# Copyright 20.27 Nitor Creations Oy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ elif sys.version_info[0] == 3:
         python2_or_3_test_deps.insert(0, "pytest")
 
 setup(name='ec2-utils',
-      version='0.26',
+      version='0.27',
       description='Tools for using on an ec2 instance',
       url='http://github.com/NitorCreations/ec2-utils',
-      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.26',
+      download_url='https://github.com/NitorCreations/ec2-utils/tarball/0.27',
       author='Pasi Niemi',
       author_email='pasi@nitor.com',
       license='Apache 2.0',
