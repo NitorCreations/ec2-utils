@@ -9,4 +9,5 @@ PID=$!
 sleep 3
 kill $PID
 ec2 logs ec2-test-group -s "5 minutes ago" -e now | grep 'kill $PID'
+ec2 logs ec2-test-group -t -s "5 minutes ago" -e now | grep 'kill $PID'
 

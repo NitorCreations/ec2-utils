@@ -1,8 +1,16 @@
-import random
+from hashlib import md5
 
-def random_word():
-    word = random.choice(words)
-    words.remove(word)
+def _to_bytes(data):
+    ret = data
+    encode_method = getattr(data, "encode", None)
+    if callable(encode_method):
+        ret = data.encode("utf-8")
+    return bytes(ret)
+
+def hashed_word(source):
+    hash = md5()
+    hash.update(_to_bytes(source))
+    word = words[int(hash.hexdigest(), 16) % len(words)]
     return word
 
 words = [

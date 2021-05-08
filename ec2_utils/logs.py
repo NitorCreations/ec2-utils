@@ -67,7 +67,7 @@ from threading import Event, Lock, Thread, BoundedSemaphore
 from botocore.compat import total_seconds
 from threading import Event, Lock, Thread
 from ec2_utils.instance_info import info
-from ec2_utils.words import random_word
+from ec2_utils.words import hashed_word
 from retry import retry
 from threadlocal_aws.clients import logs
 
@@ -439,7 +439,8 @@ class CloudWatchLogsWorker(LogWorkerThread):
         self.output_queue = output_queue
         self._logs = logs()
         self.short_format = short_format
-        self.group_stream_mappings = {}
+        self.group_mappings = {}
+        self.stream_mappings = {}
 
     @retry(tries=5, delay=2, backoff=2)
     def filter_log_events(self, item):
@@ -486,15 +487,21 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 return
 
             output = []
+            group = event['logGroupName']
+            stream = event['logStreamName']
             if self.short_format:
                 output.append(colored(short_timeformat(event.get("FirstTimestamp", None), event['timestamp']), "yellow"))
-                group_stream = event['logGroupName'] + event['logStreamName']
-                if not group_stream in self.group_stream_mappings:
-                    self.group_stream_mappings[group_stream] = random_word()
-                output.append(colored(self.group_stream_mappings[group_stream], 'green'))
+                if not group in self.group_mappings:
+                    self.group_mappings[group] = hashed_word(group)
+                    self.output_queue.put((event['timestamp'] - 10, ["Mapping ", colored(group, 'green'), "to",  colored(self.group_mappings[group], 'green')]))
+                if not stream in self.stream_mappings:
+                    self.stream_mappings[stream] = hashed_word(stream)
+                    self.output_queue.put((event['timestamp'] - 10, ["Mapping ", colored(stream, 'cyan'), "to",  colored(self.stream_mappings[stream] , 'cyan')]))
+                output.append(colored(self.group_mappings[group], 'green'))
+                output.append(colored(self.stream_mappings[stream], 'cyan'))
             else:
                 output.append(colored(millis2iso(event['timestamp']), 'yellow'))
-                output.append(colored(event['logGroupName'], 'green'))
-                output.append(colored(event['logStreamName'], 'cyan'))
+                output.append(colored(group, 'green'))
+                output.append(colored(stream, 'cyan'))
             output.append(event['message'])
             self.output_queue.put((event['timestamp'], output))  # sort by timestamp (first value in tuple)
