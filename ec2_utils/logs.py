@@ -85,9 +85,13 @@ def short_timeformat(start, timestamp):
     start_dt = millis2localdatetime(start)
     tstamp_dt = millis2localdatetime(timestamp)
     day = "0 "
+    tzdiff_start = tz.tzlocal().utcoffset(millis2utcdatetime(start)).seconds / 3600
+    start_delta = timedelta(hours=tzdiff_start)
+    tzdiff_timestamp = tz.tzlocal().utcoffset(millis2utcdatetime(timestamp)).seconds / 3600
+    timestamp_delta = timedelta(hours=tzdiff_timestamp)
     if start:
-       start_day = start_dt - datetime(1970,1,1, tzinfo=tz.tzlocal())
-       tstamp_day = tstamp_dt - datetime(1970,1,1, tzinfo=tz.tzlocal())
+       start_day = start_dt - datetime(1970,1,1, tzinfo=tzutc()) + start_delta
+       tstamp_day = tstamp_dt - datetime(1970,1,1, tzinfo=tzutc()) + timestamp_delta
        day = '{:01d} '.format(tstamp_day.days - start_day.days)
     return day + short_fmttime(tstamp_dt)
 
