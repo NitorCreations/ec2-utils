@@ -467,6 +467,7 @@ def get_logs():
     parser.add_argument("-s", "--start", help="Start time (x m|h|d|w ago | now | <seconds since epoc>)", nargs="+")
     parser.add_argument("-e", "--end", help="End time (x m|h|d|w ago | now | <seconds since epoc>)", nargs="+")
     parser.add_argument("-o", "--order", help="Best effort ordering of log entries", action="store_true")
+    parser.add_argument("-t", "--shortformat", help="Print timestamps and log groups in shorter format", action="store_true")
     parser.usage = "ndt logs log_group_pattern [-h] [-f FILTER] [-s START [START ...]] [-e END [END ...]] [-o]"
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -475,7 +476,8 @@ def get_logs():
         log_filter=args.filter,
         start_time=' '.join(args.start) if args.start else None,
         end_time=' '.join(args.end) if args.end else None,
-        sort=args.order
+        sort=args.order,
+        short_format=args.shortformat
     )
     cwlogs_groups.get_logs()
 

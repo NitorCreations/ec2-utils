@@ -67,22 +67,39 @@ from threading import Event, Lock, Thread, BoundedSemaphore
 from botocore.compat import total_seconds
 from threading import Event, Lock, Thread
 from ec2_utils.instance_info import info
+from ec2_utils.words import random_word
 from retry import retry
 from threadlocal_aws.clients import logs
 
 
-def millis2iso(millis):
-    return fmttime(datetime.utcfromtimestamp(old_div(millis, 1000.0)))
+def millis2utcdatetime(millis):
+    return datetime.utcfromtimestamp(old_div(millis, 1000.0))
 
+def millis2localdatetime(millis):
+    return millis2utcdatetime(millis).replace(tzinfo=tz.tzlocal())
+
+def millis2iso(millis):
+    return fmttime(millis2utcdatetime(millis))
+
+def short_timeformat(start, timestamp):
+    start_dt = millis2localdatetime(start)
+    tstamp_dt = millis2localdatetime(timestamp)
+    day = "00 "
+    if start:
+       start_day = start_dt - datetime(1970,1,1, tzinfo=tz.tzlocal())
+       tstamp_day = tstamp_dt - datetime(1970,1,1, tzinfo=tz.tzlocal())
+       day = '{:02d} '.format(tstamp_day.days - start_day.days)
+    return day + short_fmttime(tstamp_dt)
 
 def timestamp(tstamp):
     return (tstamp.replace(tzinfo=None) - datetime(1970, 1, 1, tzinfo=None))\
         .total_seconds() * 1000
 
-
 def fmttime(tstamp):
     return tstamp.replace(tzinfo=tz.tzlocal()).isoformat()[:23]
 
+def short_fmttime(tstamp):
+    return tstamp.replace(tzinfo=tz.tzlocal()).isoformat()[11:23]
 
 def uprint(message):
     if message:
@@ -275,12 +292,12 @@ def read_and_follow(file_name, line_function, wait=1):
                 time.sleep(wait)
 
 class CloudWatchLogsThread(Thread):
-    def __init__(self, log_group_name, start_time=None):
+    def __init__(self, log_group_name, start_time=None, short_format=False):
         Thread.__init__(self)
         self.setDaemon(True)
         self.log_group_name = log_group_name
         self.start_time = start_time
-        self.cwlogs = CloudWatchLogsGroups(log_group_filter=self.log_group_name, start_time=self.start_time)
+        self.cwlogs = CloudWatchLogsGroups(log_group_filter=self.log_group_name, start_time=self.start_time, short_format=short_format)
 
     def stop(self):
         self.cwlogs._stopped.set()
@@ -290,7 +307,7 @@ class CloudWatchLogsThread(Thread):
 
 
 class CloudWatchLogsGroups(object):
-    def __init__(self, log_filter='', log_group_filter='', start_time=None, end_time=None, sort=False):
+    def __init__(self, log_filter='', log_group_filter='', start_time=None, end_time=None, sort=False, short_format=False):
         self._logs = logs()
         self.log_filter = log_filter
         self.log_group_filter = log_group_filter
@@ -298,6 +315,7 @@ class CloudWatchLogsGroups(object):
         self.end_time = parse_datetime(end_time) * 1000 if end_time else None
         self.sort = sort
         self._stopped = Event()
+        self.short_format = short_format
 
     def filter_groups(self, log_group_filter, groups):
         filtered = []
@@ -337,7 +355,7 @@ class CloudWatchLogsGroups(object):
             work_items.append(work_item)
 
         for _ in range(10):
-            cwlogs_worker = CloudWatchLogsWorker(work_queue, semaphore, output_queue)
+            cwlogs_worker = CloudWatchLogsWorker(work_queue, semaphore, output_queue, short_format=self.short_format)
             log_threads.append(cwlogs_worker)
             cwlogs_worker.start()
 
@@ -414,12 +432,14 @@ class LogWorkerThread(Thread):
 
 
 class CloudWatchLogsWorker(LogWorkerThread):
-    def __init__(self, work_queue, semaphore, output_queue):
+    def __init__(self, work_queue, semaphore, output_queue, short_format=False):
         LogWorkerThread.__init__(self)
         self.work_queue = work_queue
         self.semaphore = semaphore
         self.output_queue = output_queue
         self._logs = logs()
+        self.short_format = short_format
+        self.group_stream_mappings = {}
 
     @retry(tries=5, delay=2, backoff=2)
     def filter_log_events(self, item):
@@ -431,6 +451,7 @@ class CloudWatchLogsWorker(LogWorkerThread):
         def generator():
             work_item = None
             last_timestamp = None
+            first_timestamp = None
             while True:
                 if not work_item:
                     work_item = self.work_queue.get()
@@ -440,6 +461,10 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 for event in response.get('events', []):
                     event['logGroupName'] = work_item['item']['logGroupName']
                     last_timestamp = event.get('timestamp', None)
+                    if not first_timestamp:
+                        first_timestamp = event.get('timestamp', None)
+                    if first_timestamp:
+                        event["FirstTimestamp"] = first_timestamp 
                     yield event
 
                 if 'nextToken' in response:
@@ -461,8 +486,15 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 return
 
             output = []
-            output.append(colored(millis2iso(event['timestamp']), 'yellow'))
-            output.append(colored(event['logGroupName'], 'green'))
-            output.append(colored(event['logStreamName'], 'cyan'))
+            if self.short_format:
+                output.append(colored(short_timeformat(event.get("FirstTimestamp", None), event['timestamp']), "yellow"))
+                group_stream = event['logGroupName'] + event['logStreamName']
+                if not group_stream in self.group_stream_mappings:
+                    self.group_stream_mappings[group_stream] = random_word()
+                output.append(colored(self.group_stream_mappings[group_stream], 'green'))
+            else:
+                output.append(colored(millis2iso(event['timestamp']), 'yellow'))
+                output.append(colored(event['logGroupName'], 'green'))
+                output.append(colored(event['logStreamName'], 'cyan'))
             output.append(event['message'])
             self.output_queue.put((event['timestamp'], output))  # sort by timestamp (first value in tuple)
