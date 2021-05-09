@@ -121,26 +121,33 @@ def uprint(message):
 
 def redundant_timeformats(timestamp):
     all_fmts = set()
-    for offset in range(1, 10):
+    for offset in range(0, 10):
         all_fmts.update(append_formats(millis2iso(timestamp + offset - 5)))
         all_fmts.update(append_formats(millis2utciso(timestamp + offset - 5)))
     return sorted(list(all_fmts), key=len, reverse=True)
 
 def append_formats(timestr):
     ret = []
+    #Full time string
     ret.append(timestr)
+    #Full time string with comma as millis separator
     ret.append(timestr.replace('.', ','))
+    #Full time string with space instead of 'T'
     ret.append(timestr.replace('T', ' '))
+    #Full time string with space instead of 'T' and comma as millis separator
+    ret.append(timestr.replace('T', ' ').replace('.', ','))
     # Up to seconds
     ret.append(timestr[:19])
+    # 'T' replaced with space up to seconds
+    ret.append(timestr[:19].replace('T', ' '))
     # date
     ret.append(timestr[:10])
     # time
     ret.append(timestr[11:19])
     # time with millis
     ret.append(timestr[11:23])
-    # 'T' replaced with space up to seconds
-    ret.append(timestr[:10] + " " + timestr[11:19])
+    # time with millis and comma as separator
+    ret.append(timestr[11:23].replace('.', ','))
     return ret
 
 
