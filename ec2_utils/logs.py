@@ -81,6 +81,9 @@ def millis2localdatetime(millis):
 def millis2iso(millis):
     return fmttime(millis2utcdatetime(millis))
 
+def millis2utciso(millis):
+    return utcfmttime(millis2utcdatetime(millis))
+
 def short_timeformat(start, timestamp):
     start_dt = millis2localdatetime(start)
     tstamp_dt = millis2localdatetime(timestamp)
@@ -100,10 +103,13 @@ def timestamp(tstamp):
         .total_seconds() * 1000
 
 def fmttime(tstamp):
-    return tstamp.replace(tzinfo=tz.tzlocal()).isoformat()[:23]
+    return tstamp.replace(tzinfo=tz.tzlocal()).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+def utcfmttime(tstamp):
+    return tstamp.replace(tzinfo=tzutc()).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
 def short_fmttime(tstamp):
-    return tstamp.replace(tzinfo=tz.tzlocal()).isoformat()[11:23]
+    return tstamp.replace(tzinfo=tz.tzlocal()).strftime('%H:%M:%S.%f')[:-3]
 
 def uprint(message):
     if message:
@@ -112,6 +118,30 @@ def uprint(message):
         else:
             sys.stdout.write((message.strip() + os.linesep)
                              .encode(locale.getpreferredencoding()))
+
+def redundant_timeformats(timestamp):
+    all_fmts = set()
+    for offset in range(1, 10):
+        all_fmts.update(append_formats(millis2iso(timestamp + offset - 5)))
+        all_fmts.update(append_formats(millis2utciso(timestamp + offset - 5)))
+    return sorted(list(all_fmts), key=len, reverse=True)
+
+def append_formats(timestr):
+    ret = []
+    ret.append(timestr)
+    ret.append(timestr.replace('.', ','))
+    ret.append(timestr.replace('T', ' '))
+    # Up to seconds
+    ret.append(timestr[:19])
+    # date
+    ret.append(timestr[:10])
+    # time
+    ret.append(timestr[11:19])
+    # time with millis
+    ret.append(timestr[11:23])
+    # 'T' replaced with space up to seconds
+    ret.append(timestr[:10] + " " + timestr[11:19])
+    return ret
 
 
 def validatestarttime(start_time):
@@ -165,7 +195,6 @@ class LogSender(object):
     def __init__(self, file_name, group=None, stream=None):
         self._lock = Lock()
         self._send_lock = Lock()
-        self._logs = logs()
         if group:
             self.group_name = group
         else:
@@ -177,11 +206,11 @@ class LogSender(object):
             self.stream_name = resolve_instance_id() + "|" + \
                 file_name.replace(':', '_').replace('*', '_')
         try:
-            self._logs.create_log_group(logGroupName=self.group_name)
+            logs().create_log_group(logGroupName=self.group_name)
         except BaseException:
             pass
         try:
-            self._logs.create_log_stream(logGroupName=self.group_name,
+            logs().create_log_stream(logGroupName=self.group_name,
                                          logStreamName=self.stream_name)
         except BaseException:
             pass
@@ -238,17 +267,17 @@ class LogSender(object):
     @retry(tries=5, delay=1, backoff=2)
     def _put_log_events(self, events):
         if not self.token:
-            stream_desc = self._logs.describe_log_streams(logGroupName=self.group_name,
+            stream_desc = logs().describe_log_streams(logGroupName=self.group_name,
                                                           logStreamNamePrefix=self.stream_name)
             if 'uploadSequenceToken' in stream_desc['logStreams'][0]:
                 self.token = stream_desc['logStreams'][0]['uploadSequenceToken']
         if self.token:
-            log_response = self._logs.put_log_events(logGroupName=self.group_name,
+            log_response = logs().put_log_events(logGroupName=self.group_name,
                                                      logStreamName=self.stream_name,
                                                      logEvents=events,
                                                      sequenceToken=self.token)
         else:
-            log_response = self._logs.put_log_events(logGroupName=self.group_name,
+            log_response = logs().put_log_events(logGroupName=self.group_name,
                                                      logStreamName=self.stream_name,
                                                      logEvents=events)
         if 'CLOUDWATCH_LOG_DEBUG' in os.environ:
@@ -312,7 +341,6 @@ class CloudWatchLogsThread(Thread):
 
 class CloudWatchLogsGroups(object):
     def __init__(self, log_filter='', log_group_filter='', start_time=None, end_time=None, sort=False, short_format=False):
-        self._logs = logs()
         self.log_filter = log_filter
         self.log_group_filter = log_group_filter
         self.start_time = validatestarttime(parse_datetime(start_time))
@@ -329,11 +357,11 @@ class CloudWatchLogsGroups(object):
         return filtered
 
     def get_filtered_groups(self, log_group_filter):
-        resp = self._logs.describe_log_groups()
+        resp = logs().describe_log_groups()
         filtered_group_names = []
         filtered_group_names.extend(self.filter_groups(self.log_group_filter, resp['logGroups']))
         while resp.get('nextToken'):
-            resp = self._logs.describe_log_groups(nextToken=resp['nextToken'])
+            resp = logs().describe_log_groups(nextToken=resp['nextToken'])
             filtered_group_names.extend(self.filter_groups(self.log_group_filter, resp['logGroups']))
         return filtered_group_names
 
@@ -434,21 +462,19 @@ class LogWorkerThread(Thread):
     def run(self):
         self.list_logs()
 
-
 class CloudWatchLogsWorker(LogWorkerThread):
     def __init__(self, work_queue, semaphore, output_queue, short_format=False):
         LogWorkerThread.__init__(self)
         self.work_queue = work_queue
         self.semaphore = semaphore
         self.output_queue = output_queue
-        self._logs = logs()
         self.short_format = short_format
         self.group_mappings = {}
         self.stream_mappings = {}
 
     @retry(tries=5, delay=2, backoff=2)
     def filter_log_events(self, item):
-        return self._logs.filter_log_events(**item)
+        return logs().filter_log_events(**item)
 
     def list_logs(self):
         do_wait = object()
@@ -503,9 +529,13 @@ class CloudWatchLogsWorker(LogWorkerThread):
                     self.output_queue.put((event['timestamp'] - 10, ["Mapping ", colored(stream, 'cyan'), "to",  colored(self.stream_mappings[stream] , 'cyan')]))
                 output.append(colored(self.group_mappings[group], 'green'))
                 output.append(colored(self.stream_mappings[stream], 'cyan'))
+                message = event['message']
+                for redundant in redundant_timeformats(event['timestamp']):
+                    message = message.replace(redundant, '')
+                output.append(message)
             else:
                 output.append(colored(millis2iso(event['timestamp']), 'yellow'))
                 output.append(colored(group, 'green'))
                 output.append(colored(stream, 'cyan'))
-            output.append(event['message'])
+                output.append(event['message'])
             self.output_queue.put((event['timestamp'], output))  # sort by timestamp (first value in tuple)
