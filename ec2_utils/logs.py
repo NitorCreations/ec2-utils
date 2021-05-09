@@ -73,10 +73,10 @@ from threadlocal_aws.clients import logs
 
 
 def millis2utcdatetime(millis):
-    return datetime.utcfromtimestamp(old_div(millis, 1000.0))
+    return datetime.utcfromtimestamp(old_div(millis, 1000.0)).replace(tzinfo=tzutc())
 
 def millis2localdatetime(millis):
-    return millis2utcdatetime(millis).replace(tzinfo=tz.tzlocal())
+    return millis2utcdatetime(millis).astimezone(tz.tzlocal())
 
 def millis2iso(millis):
     return fmttime(millis2utcdatetime(millis))
@@ -96,20 +96,20 @@ def short_timeformat(start, timestamp):
        start_day = start_dt - datetime(1970,1,1, tzinfo=tzutc()) + start_delta
        tstamp_day = tstamp_dt - datetime(1970,1,1, tzinfo=tzutc()) + timestamp_delta
        day = '{:01d} '.format(tstamp_day.days - start_day.days)
-    return day + short_fmttime(tstamp_dt)
+    return day + short_fmttime(millis2utcdatetime(timestamp))
 
 def timestamp(tstamp):
     return (tstamp.replace(tzinfo=None) - datetime(1970, 1, 1, tzinfo=None))\
         .total_seconds() * 1000
 
 def fmttime(tstamp):
-    return tstamp.replace(tzinfo=tz.tzlocal()).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    return tstamp.astimezone(tz.tzlocal()).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
 def utcfmttime(tstamp):
-    return tstamp.replace(tzinfo=tzutc()).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    return tstamp.astimezone(tzutc()).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
 def short_fmttime(tstamp):
-    return tstamp.replace(tzinfo=tz.tzlocal()).strftime('%H:%M:%S.%f')[:-3]
+    return tstamp.astimezone(tz.tzlocal()).strftime('%H:%M:%S.%f')[:-3]
 
 def uprint(message):
     if message:
