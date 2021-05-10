@@ -542,10 +542,10 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 output.append(colored(short_timeformat(event.get("FirstTimestamp", None), event['timestamp']), "yellow"))
                 if not group in self.group_mappings:
                     self.group_mappings[group] = hashed_word(group)
-                    self.output_queue.put((event['timestamp'] - 10, ["Mapping ", colored(group, 'green'), "to",  colored(self.group_mappings[group], 'green')]))
+                    self.output_queue.put((event['timestamp'] - 10, self.counter.inc(), ["Mapping ", colored(group, 'green'), "to",  colored(self.group_mappings[group], 'green')]))
                 if not stream in self.stream_mappings:
                     self.stream_mappings[stream] = hashed_word(stream)
-                    self.output_queue.put((event['timestamp'] - 10, ["Mapping ", colored(stream, 'cyan'), "to",  colored(self.stream_mappings[stream] , 'cyan')]))
+                    self.output_queue.put((event['timestamp'] - 10, self.counter.inc(), ["Mapping ", colored(stream, 'cyan'), "to",  colored(self.stream_mappings[stream] , 'cyan')]))
                 output.append(colored(self.group_mappings[group], 'green'))
                 output.append(colored(self.stream_mappings[stream], 'cyan'))
                 message = event['message']
@@ -557,4 +557,4 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 output.append(colored(group, 'green'))
                 output.append(colored(stream, 'cyan'))
                 output.append(event['message'])
-            self.output_queue.put((event['timestamp'],self.counter.inc(), output))  # sort by timestamp (first value in tuple)
+            self.output_queue.put((event['timestamp'], self.counter.inc(), output))  # sort by timestamp (first value in tuple)
