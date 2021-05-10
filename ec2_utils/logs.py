@@ -331,6 +331,16 @@ def read_and_follow(file_name, line_function, wait=1):
             if end_seen:
                 time.sleep(wait)
 
+class AtomicInteger():
+    def __init__(self, value=0):
+        self._value = int(value)
+        self._lock = Lock()
+        
+    def inc(self, d=1):
+        with self._lock:
+            self._value += int(d)
+            return self._value
+
 class CloudWatchLogsThread(Thread):
     def __init__(self, log_group_name, start_time=None, short_format=False):
         Thread.__init__(self)
@@ -355,6 +365,7 @@ class CloudWatchLogsGroups(object):
         self.sort = sort
         self._stopped = Event()
         self.short_format = short_format
+        self.event_counter = AtomicInteger()
 
     def filter_groups(self, log_group_filter, groups):
         filtered = []
@@ -394,7 +405,7 @@ class CloudWatchLogsGroups(object):
             work_items.append(work_item)
 
         for _ in range(10):
-            cwlogs_worker = CloudWatchLogsWorker(work_queue, semaphore, output_queue, short_format=self.short_format)
+            cwlogs_worker = CloudWatchLogsWorker(work_queue, semaphore, output_queue, self.event_counter, short_format=self.short_format)
             log_threads.append(cwlogs_worker)
             cwlogs_worker.start()
 
@@ -426,7 +437,7 @@ class CloudWatchLogsGroups(object):
     def print_output_if_any(self, output_queue):
         while True:
             try:
-                uprint(' '.join(output_queue.get(timeout=1.0)[1]))
+                uprint(' '.join(output_queue.get(timeout=1.0)[2]))
             except queue.Empty:
                 break
 
@@ -470,7 +481,7 @@ class LogWorkerThread(Thread):
         self.list_logs()
 
 class CloudWatchLogsWorker(LogWorkerThread):
-    def __init__(self, work_queue, semaphore, output_queue, short_format=False):
+    def __init__(self, work_queue, semaphore, output_queue, counter, short_format=False):
         LogWorkerThread.__init__(self)
         self.work_queue = work_queue
         self.semaphore = semaphore
@@ -478,6 +489,7 @@ class CloudWatchLogsWorker(LogWorkerThread):
         self.short_format = short_format
         self.group_mappings = {}
         self.stream_mappings = {}
+        self.counter = counter
 
     @retry(tries=5, delay=2, backoff=2)
     def filter_log_events(self, item):
@@ -545,4 +557,4 @@ class CloudWatchLogsWorker(LogWorkerThread):
                 output.append(colored(group, 'green'))
                 output.append(colored(stream, 'cyan'))
                 output.append(event['message'])
-            self.output_queue.put((event['timestamp'], output))  # sort by timestamp (first value in tuple)
+            self.output_queue.put((event['timestamp'],self.counter.inc(), output))  # sort by timestamp (first value in tuple)
