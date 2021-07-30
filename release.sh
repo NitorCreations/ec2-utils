@@ -37,5 +37,5 @@ git commit -m "$1" setup.py README.md
 git tag "$NEW_VERSION" -m "$1"
 git push --tags origin master
 
-python setup.py register -r pypi
-python setup.py sdist upload -r pypi --sign
+python setup.py sdist bdist_wheel
+twine upload dist/*
