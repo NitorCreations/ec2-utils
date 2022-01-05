@@ -4,7 +4,7 @@ import sys
 import signal
 import locale
 from subprocess import PIPE, Popen
-from argcomplete import USING_PYTHON2, ensure_str, split_line
+from argcomplete import ensure_str, split_line
 from ec2_utils import COMMAND_MAPPINGS, cov
 
 SYS_ENCODING = locale.getpreferredencoding()
@@ -31,7 +31,7 @@ def do_command_completion():
     comp_point = int(os.environ["COMP_POINT"])
 
     # Adjust comp_point for wide chars
-    if USING_PYTHON2:
+    if sys.version_info[0] == 2:
         comp_point = len(comp_line[:comp_point].decode(SYS_ENCODING))
     else:
         comp_point = len(comp_line.encode(SYS_ENCODING)[:comp_point].decode(SYS_ENCODING))
