@@ -4,8 +4,8 @@ import sys
 import signal
 import locale
 from subprocess import PIPE, Popen
-from argcomplete import ensure_str, split_line
-from ec2_utils import COMMAND_MAPPINGS, cov
+from argcomplete import split_line
+from ec2_utils import COMMAND_MAPPINGS, cov, _to_str
 
 SYS_ENCODING = locale.getpreferredencoding()
 
@@ -31,7 +31,7 @@ def do_command_completion():
     comp_point = int(os.environ["COMP_POINT"])
 
     comp_point = len(comp_line.encode(SYS_ENCODING)[:comp_point].decode(SYS_ENCODING))
-    comp_line = ensure_str(comp_line)
+    comp_line = _to_str(comp_line)
     comp_words = split_line(comp_line, comp_point)[3]
     if "COMP_CWORD" in os.environ and os.environ["COMP_CWORD"] == "1":
         keys = [x for x in list(COMMAND_MAPPINGS.keys()) if x.startswith(current)]
