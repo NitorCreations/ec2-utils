@@ -37,5 +37,6 @@ git commit -m "$1" setup.py README.md
 git tag "$NEW_VERSION" -m "$1"
 git push --tags origin master
 
+rm -rf dist
 python setup.py sdist bdist_wheel
 twine upload dist/*
