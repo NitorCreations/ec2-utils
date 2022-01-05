@@ -14,7 +14,7 @@ LINES=$(ec2 list-attached-enis | wc -l)
 ENI=$(ec2 create-eni)
 echo $ENI | egrep '^eni-[0-9a-f]{13,26}$'
 ec2 list-attachable-enis
-ec2 list-attachable-enis | grep $ENI
+for i in $(seq 1 5); do sleep 3; ec2 list-attachable-enis | grep $ENI && break; done
 ec2 attach-eni -i $ENI
 ec2 list-attached-enis
 ec2 list-attached-enis | grep $ENI
