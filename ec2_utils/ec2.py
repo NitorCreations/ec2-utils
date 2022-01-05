@@ -30,12 +30,7 @@ def do_command_completion():
     comp_line = os.environ["COMP_LINE"]
     comp_point = int(os.environ["COMP_POINT"])
 
-    # Adjust comp_point for wide chars
-    if sys.version_info[0] == 2:
-        comp_point = len(comp_line[:comp_point].decode(SYS_ENCODING))
-    else:
-        comp_point = len(comp_line.encode(SYS_ENCODING)[:comp_point].decode(SYS_ENCODING))
-
+    comp_point = len(comp_line.encode(SYS_ENCODING)[:comp_point].decode(SYS_ENCODING))
     comp_line = ensure_str(comp_line)
     comp_words = split_line(comp_line, comp_point)[3]
     if "COMP_CWORD" in os.environ and os.environ["COMP_CWORD"] == "1":

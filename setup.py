@@ -15,12 +15,6 @@ import sys
 from setuptools import setup
 from ec2_utils import CONSOLESCRIPTS
 
-if sys.version_info[0] == 2:
-    python2_or_3_test_deps = ['pytest==4.6.11', 'pytest-mock==1.13.0', 'mock==3.0.5']
-elif sys.version_info[0] == 3:
-    python2_or_3_test_deps = ['pytest-mock', 'mock']
-    python2_or_3_test_deps.insert(0, "pytest")
-
 setup(name='ec2-utils',
       version='0.36',
       description='Tools for using on an ec2 instance',
@@ -50,8 +44,11 @@ setup(name='ec2-utils',
           'pypiwin32'
           ] if sys.platform.startswith('win') else []),
       tests_require=[
+          'pytest',
           'pytest-cov',
           'coverage',
-          'coveralls'
-      ] + python2_or_3_test_deps,
+          'coveralls',
+          'pytest-mock',
+          'mock'
+      ],
       zip_safe=False)

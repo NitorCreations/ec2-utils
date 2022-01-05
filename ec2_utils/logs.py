@@ -113,11 +113,7 @@ def short_fmttime(tstamp):
 
 def uprint(message):
     if message:
-        if sys.version_info[0] > 2:
-            sys.stdout.write((message.strip() + os.linesep))
-        else:
-            sys.stdout.write((message.strip() + os.linesep)
-                             .encode(locale.getpreferredencoding()))
+        sys.stdout.write((message.strip() + os.linesep))
 
 def redundant_timeformats(timestamp):
     all_fmts = set()
