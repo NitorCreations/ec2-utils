@@ -318,7 +318,7 @@ def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=Fa
         if not device:
             device = device_from_mount_path(mount_path)
         proc = Popen(["umount", "-f", mount_path], stdout=PIPE, stderr=PIPE)
-        out = proc.communicate()[0]
+        _, _ = proc.communicate()[0]
 
     if not volume_id and device:
         volume_id = volume_id_from_device(device)
@@ -333,7 +333,6 @@ def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=Fa
     info().clear_cache()
 
 def volume_info(mount_path=None, device=None, volume_id=None):
-    instance_id = info().instance_id()
     if mount_path and not (device or volume_id):
         device = device_from_mount_path(mount_path)
 

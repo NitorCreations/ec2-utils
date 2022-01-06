@@ -259,14 +259,14 @@ def ecs_private_ip():
     and the private interface of the EC2 instance in the case of host networkin"""
     parser = _get_parser()
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+    _ = parser.parse_args()
     print(ecs.get_private_ip())
 
 def first_ext_ip():
     """ Get the first IP address attached to the instance that is not localhost """
     parser = _get_parser()
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+    _ = parser.parse_args()
     for iface in netifaces.interfaces():
         addresses = netifaces.ifaddresses(iface)
         if netifaces.AF_INET in addresses and addresses[netifaces.AF_INET] and "addr" in addresses[netifaces.AF_INET][0] and not addresses[netifaces.AF_INET][0]["addr"].startswith("127."):
@@ -347,7 +347,7 @@ def list_attachable_enis():
     """
     parser = _get_parser()
     argcomplete.autocomplete(parser)
-    parser.parse_args()
+    _ = parser.parse_args()
     if is_ec2():
         for eni_id in interface.list_attachable_eni_ids():
             print(eni_id) 

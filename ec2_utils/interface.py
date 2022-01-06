@@ -1,5 +1,3 @@
-import ctypes.util
-import ctypes
 import time
 from retry import retry
 from threadlocal_aws.clients import ec2, route53
