@@ -20,6 +20,7 @@ from ec2_utils.utils import delete_selected, prune_array, delete_object
 from threadlocal_aws.clients import ec2
 from threadlocal_aws.resources import ec2 as ec2_resource
 
+
 def letter_to_target_id(letter):
     return ord(letter) - ord("f") + 5
 
@@ -34,8 +35,7 @@ def wmic_diskdrive_get():
 
 def wmic_get(command):
     ret = []
-    proc = Popen(["wmic", command, "get",
-                  "/format:rawxml"], stdout=PIPE, stderr=PIPE)
+    proc = Popen(["wmic", command, "get", "/format:rawxml"], stdout=PIPE, stderr=PIPE)
     output = proc.communicate()[0]
     tree = ET.fromstring(output)
     for elem in tree.iter("RESULTS"):
@@ -43,9 +43,9 @@ def wmic_get(command):
             disk = {}
             for prop in inst.iter("PROPERTY"):
                 try:
-                    disk[prop.attrib['NAME']] = int(prop.findtext("*"))
+                    disk[prop.attrib["NAME"]] = int(prop.findtext("*"))
                 except ValueError:
-                    disk[prop.attrib['NAME']] = prop.findtext("*")
+                    disk[prop.attrib["NAME"]] = prop.findtext("*")
                 except TypeError:
                     continue
             ret.append(disk)
@@ -53,7 +53,7 @@ def wmic_get(command):
 
 
 def wmic_disk_with_target_id(target_id):
-    ret = [x for x in wmic_diskdrive_get() if x['SCSITargetId'] == target_id]
+    ret = [x for x in wmic_diskdrive_get() if x["SCSITargetId"] == target_id]
     if ret:
         return ret[0]
     else:
@@ -62,9 +62,11 @@ def wmic_disk_with_target_id(target_id):
 
 def wmic_disk_with_volume_id(volume_id):
     vol2 = volume_id.replace("-", "")
-    ret = [x for x in wmic_diskdrive_get() \
-           if x['SerialNumber'].startswith(volume_id) or \
-           x['SerialNumber'].startswith(vol2)]
+    ret = [
+        x
+        for x in wmic_diskdrive_get()
+        if x["SerialNumber"].startswith(volume_id) or x["SerialNumber"].startswith(vol2)
+    ]
     if ret:
         return ret[0]
     else:
@@ -72,8 +74,7 @@ def wmic_disk_with_volume_id(volume_id):
 
 
 def wmic_disk_with_disk_number(disk_number):
-    ret = [x for x in wmic_diskdrive_get() \
-           if x['Index'] == disk_number]
+    ret = [x for x in wmic_diskdrive_get() if x["Index"] == disk_number]
     if ret:
         return ret[0]
     else:
@@ -82,41 +83,69 @@ def wmic_disk_with_disk_number(disk_number):
 
 def disk_by_drive_letter(drive_letter):
     ret = {}
-    proc = Popen(["powershell.exe", find_include("disk-by-drive-letter.ps1"),
-                  drive_letter.upper() + ":"], stdout=PIPE, stderr=PIPE)
+    proc = Popen(
+        [
+            "powershell.exe",
+            find_include("disk-by-drive-letter.ps1"),
+            drive_letter.upper() + ":",
+        ],
+        stdout=PIPE,
+        stderr=PIPE,
+    )
     output = proc.communicate()[0]
     tree = ET.fromstring(output)
     for obj in tree.iter("Object"):
         for prop in obj.iter("Property"):
             try:
-                ret[prop.attrib['Name']] = int(prop.findtext("."))
+                ret[prop.attrib["Name"]] = int(prop.findtext("."))
             except ValueError:
-                ret[prop.attrib['Name']] = prop.findtext(".")
+                ret[prop.attrib["Name"]] = prop.findtext(".")
             except TypeError:
                 continue
     return ret
 
 
-def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
-                         size_gb=None, del_on_termination=True, tags=[], copytags=[],
-                         ignore_missing_copytags=False, encrypted=True,
-                         volume_type="gp2"):
+def volume_from_snapshot(
+    tag_key,
+    tag_value,
+    mount_path,
+    availability_zone=None,
+    size_gb=None,
+    del_on_termination=True,
+    tags=[],
+    copytags=[],
+    ignore_missing_copytags=False,
+    encrypted=True,
+    volume_type="gp2",
+):
     snapshot = get_latest_snapshot(tag_key, tag_value)
     if snapshot:
         print("Found snapshot " + snapshot.id)
-        volume = create_volume(snapshot.id, availability_zone=availability_zone,
-                               size_gb=size_gb, encrypted=encrypted,
-                               volume_type=volume_type)
+        volume = create_volume(
+            snapshot.id,
+            availability_zone=availability_zone,
+            size_gb=size_gb,
+            encrypted=encrypted,
+            volume_type=volume_type,
+        )
     else:
         if not size_gb:
             size_gb = 32
         print("Creating empty volume of size " + str(size_gb))
-        volume = create_empty_volume(size_gb,
-                                     availability_zone=availability_zone,
-                                     encrypted=encrypted,
-                                     volume_type=volume_type)
-    tag_volume(volume, tag_key, tag_value, tags, copytags,
-               ignore_missing_copytags=ignore_missing_copytags)
+        volume = create_empty_volume(
+            size_gb,
+            availability_zone=availability_zone,
+            encrypted=encrypted,
+            volume_type=volume_type,
+        )
+    tag_volume(
+        volume,
+        tag_key,
+        tag_value,
+        tags,
+        copytags,
+        ignore_missing_copytags=ignore_missing_copytags,
+    )
     device = first_free_device()
     print("Attaching volume " + volume + " to " + device)
     attach_volume(volume, device)
@@ -125,73 +154,151 @@ def volume_from_snapshot(tag_key, tag_value, mount_path, availability_zone=None,
         delete_on_termination(device)
     if not snapshot:
         # empty device
-        if sys.platform.startswith('win'):
+        if sys.platform.startswith("win"):
             # Windows format
             drive_letter = mount_path[0].upper()
             disk = wmic_disk_with_target_id(letter_to_target_id(device[-1:]))
             if not disk:
                 disk = wmic_disk_with_volume_id(volume)
-            disk_number = str(disk['Index'])
-            subprocess.check_call(["powershell.exe", "Get-Disk", disk_number,
-                                   "|", "Set-Disk", "-IsOffline", "$False"])
-            subprocess.check_call(["powershell.exe", "Initialize-Disk",
-                                   disk_number, "-PartitionStyle", "MBR"])
-            subprocess.check_call(["powershell.exe", "New-Partition",
-                                   "-DiskNumber", disk_number,
-                                   "-UseMaximumSize", "-DriveLetter",
-                                   drive_letter])
+            disk_number = str(disk["Index"])
+            subprocess.check_call(
+                [
+                    "powershell.exe",
+                    "Get-Disk",
+                    disk_number,
+                    "|",
+                    "Set-Disk",
+                    "-IsOffline",
+                    "$False",
+                ]
+            )
+            subprocess.check_call(
+                [
+                    "powershell.exe",
+                    "Initialize-Disk",
+                    disk_number,
+                    "-PartitionStyle",
+                    "MBR",
+                ]
+            )
+            subprocess.check_call(
+                [
+                    "powershell.exe",
+                    "New-Partition",
+                    "-DiskNumber",
+                    disk_number,
+                    "-UseMaximumSize",
+                    "-DriveLetter",
+                    drive_letter,
+                ]
+            )
             print("Formatting " + device + "(" + drive_letter + ":)")
-            subprocess.check_call(["powershell.exe", "Format-Volume",
-                                   "-DriveLetter", drive_letter, "-FileSystem",
-                                   "NTFS", "-Force", "-Confirm:$False"])
+            subprocess.check_call(
+                [
+                    "powershell.exe",
+                    "Format-Volume",
+                    "-DriveLetter",
+                    drive_letter,
+                    "-FileSystem",
+                    "NTFS",
+                    "-Force",
+                    "-Confirm:$False",
+                ]
+            )
         else:
             # linux format
             print("Formatting " + local_device)
             subprocess.check_call(["mkfs.ext4", local_device])
     else:
-        if sys.platform.startswith('win'):
+        if sys.platform.startswith("win"):
             target_id = letter_to_target_id(device[-1:])
             drive_letter = mount_path[0].upper()
             disk = wmic_disk_with_target_id(target_id)
             if not disk:
                 disk = wmic_disk_with_volume_id(volume)
-            disk_number = str(disk['Index'])
-            with open(os.devnull, 'w') as devnull:
-                subprocess.call(["powershell.exe", "Initialize-Disk",
-                                 disk_number, "-PartitionStyle", "MBR"],
-                                stderr=devnull, stdout=devnull)
-            subprocess.check_call(["powershell.exe", "Get-Disk", disk_number,
-                                   "|", "Set-Disk", "-IsOffline", "$False"])
-            with open(os.devnull, 'w') as devnull:
-                subprocess.check_call(["powershell.exe", "Get-Partition",
-                                       "-DiskNumber", disk_number,
-                                       "-PartitionNumber", "1"
-                                       "|", "Set-Partition", "-NewDriveLetter",
-                                       drive_letter], stdout=devnull,
-                                      stderr=devnull)
+            disk_number = str(disk["Index"])
+            with open(os.devnull, "w") as devnull:
+                subprocess.call(
+                    [
+                        "powershell.exe",
+                        "Initialize-Disk",
+                        disk_number,
+                        "-PartitionStyle",
+                        "MBR",
+                    ],
+                    stderr=devnull,
+                    stdout=devnull,
+                )
+            subprocess.check_call(
+                [
+                    "powershell.exe",
+                    "Get-Disk",
+                    disk_number,
+                    "|",
+                    "Set-Disk",
+                    "-IsOffline",
+                    "$False",
+                ]
+            )
+            with open(os.devnull, "w") as devnull:
+                subprocess.check_call(
+                    [
+                        "powershell.exe",
+                        "Get-Partition",
+                        "-DiskNumber",
+                        disk_number,
+                        "-PartitionNumber",
+                        "1" "|",
+                        "Set-Partition",
+                        "-NewDriveLetter",
+                        drive_letter,
+                    ],
+                    stdout=devnull,
+                    stderr=devnull,
+                )
             # resize win partition if necessary
             if size_gb and not size_gb == snapshot.volume_size:
-                proc = subprocess.Popen(["powershell.exe",
-                                         "$((Get-PartitionSupportedSize -Dri" +
-                                         "veLetter " + drive_letter +
-                                         ").SizeMax)"],
-                                        stdout=subprocess.PIPE)
+                proc = subprocess.Popen(
+                    [
+                        "powershell.exe",
+                        "$((Get-PartitionSupportedSize -Dri"
+                        + "veLetter "
+                        + drive_letter
+                        + ").SizeMax)",
+                    ],
+                    stdout=subprocess.PIPE,
+                )
                 max_size = proc.communicate()[0]
-                subprocess.check_call(["powershell.exe", "Resize-Partition",
-                                       "-DriveLetter", drive_letter, "-Size",
-                                       max_size])
+                subprocess.check_call(
+                    [
+                        "powershell.exe",
+                        "Resize-Partition",
+                        "-DriveLetter",
+                        drive_letter,
+                        "-Size",
+                        max_size,
+                    ]
+                )
         else:
             if size_gb and not size_gb == snapshot.volume_size:
-                print("Resizing " + local_device + " from " +
-                      str(snapshot.volume_size) + "GB to " + str(size_gb))
+                print(
+                    "Resizing "
+                    + local_device
+                    + " from "
+                    + str(snapshot.volume_size)
+                    + "GB to "
+                    + str(size_gb)
+                )
                 try:
                     subprocess.check_call(["e2fsck", "-f", "-p", local_device])
                 except CalledProcessError as e:
                     print("Filesystem check returned " + str(e.returncode))
                     if e.returncode > 1:
-                        raise Exception("Uncorrected filesystem errors - please fix manually")
+                        raise Exception(
+                            "Uncorrected filesystem errors - please fix manually"
+                        )
                 subprocess.check_call(["resize2fs", local_device])
-    if not sys.platform.startswith('win'):
+    if not sys.platform.startswith("win"):
         if not os.path.isdir(mount_path):
             os.makedirs(mount_path)
         subprocess.check_call(["mount", local_device, mount_path])
@@ -208,54 +315,62 @@ def first_free_device():
 
 
 def attached_devices(volume_id=None):
-    volumes = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id",
-                                               "Values": [ info().instance_id() ]},
-                                              {"Name": "attachment.status",
-                                               "Values": [ "attached" ]}])
+    volumes = ec2().describe_volumes(
+        Filters=[
+            {"Name": "attachment.instance-id", "Values": [info().instance_id()]},
+            {"Name": "attachment.status", "Values": ["attached"]},
+        ]
+    )
     ret = []
-    for volume in volumes['Volumes']:
-        for attachment in volume['Attachments']:
-            if (not volume_id) or volume['VolumeId'] == volume_id:
-                ret.append(attachment['Device'])
+    for volume in volumes["Volumes"]:
+        for attachment in volume["Attachments"]:
+            if (not volume_id) or volume["VolumeId"] == volume_id:
+                ret.append(attachment["Device"])
     return ret
 
+
 def get_latest_snapshot(tag_name, tag_value):
-    """Get the latest snapshot with a given tag
-    """
+    """Get the latest snapshot with a given tag"""
     filters = snapshot_filters(tag_name=tag_name, tag_value=tag_value)
-    snapshots = sorted(ec2_resource().snapshots.filter(
-        Filters=filters),
-        key=lambda k: k.start_time, reverse=True)
+    snapshots = sorted(
+        ec2_resource().snapshots.filter(Filters=filters),
+        key=lambda k: k.start_time,
+        reverse=True,
+    )
     if snapshots:
         return snapshots[0]
     else:
         return None
 
 
-def create_volume(snapshot_id, availability_zone=None, size_gb=None, encrypted=True, volume_type='gp2'):
-    args = {'SnapshotId': snapshot_id,
-            'VolumeType': volume_type,
-            'Encrypted': encrypted}
+def create_volume(
+    snapshot_id, availability_zone=None, size_gb=None, encrypted=True, volume_type="gp2"
+):
+    args = {
+        "SnapshotId": snapshot_id,
+        "VolumeType": volume_type,
+        "Encrypted": encrypted,
+    }
     if not availability_zone:
         availability_zone = info().availability_zone()
-    args['AvailabilityZone'] = availability_zone
+    args["AvailabilityZone"] = availability_zone
     if size_gb:
-        args['Size'] = size_gb
+        args["Size"] = size_gb
     resp = ec2().create_volume(**args)
-    wait_for_volume_status(resp['VolumeId'], "available")
-    return resp['VolumeId']
+    wait_for_volume_status(resp["VolumeId"], "available")
+    return resp["VolumeId"]
 
 
-def create_empty_volume(size_gb, availability_zone=None, encrypted=True, volume_type='gp2'):
-    args = {'Size': size_gb,
-            'VolumeType': volume_type,
-            'Encrypted': encrypted}
+def create_empty_volume(
+    size_gb, availability_zone=None, encrypted=True, volume_type="gp2"
+):
+    args = {"Size": size_gb, "VolumeType": volume_type, "Encrypted": encrypted}
     if not availability_zone:
         availability_zone = info().availability_zone()
-    args['AvailabilityZone'] = availability_zone
+    args["AvailabilityZone"] = availability_zone
     resp = ec2().create_volume(**args)
-    wait_for_volume_status(resp['VolumeId'], "available")
-    return resp['VolumeId']
+    wait_for_volume_status(resp["VolumeId"], "available")
+    return resp["VolumeId"]
 
 
 def wait_for_volume_status(volume_id, status, timeout_sec=300):
@@ -264,21 +379,31 @@ def wait_for_volume_status(volume_id, status, timeout_sec=300):
     while not match_volume_state(volume, status):
         time.sleep(2)
         if time.time() - start > timeout_sec:
-            raise Exception("Failed waiting for status '" + status + "' for " +
-                            volume_id + " (timeout: " + str(timeout_sec) + ")")
+            raise Exception(
+                "Failed waiting for status '"
+                + status
+                + "' for "
+                + volume_id
+                + " (timeout: "
+                + str(timeout_sec)
+                + ")"
+            )
         resp = ec2().describe_volumes(VolumeIds=[volume_id])
         if "Volumes" in resp:
-            volume = resp['Volumes'][0]
+            volume = resp["Volumes"][0]
 
 
 def match_volume_state(volume, status):
     if not volume:
         return False
     if status == "attached":
-        return 'Attachments' in volume and len(volume['Attachments']) > 0 and \
-               volume['Attachments'][0]['State'] == "attached"
+        return (
+            "Attachments" in volume
+            and len(volume["Attachments"]) > 0
+            and volume["Attachments"][0]["State"] == "attached"
+        )
     else:
-        return volume['State'] == status
+        return volume["State"] == status
 
 
 def wait_for_snapshot_complete(snapshot_id, timeout_sec=900):
@@ -287,30 +412,42 @@ def wait_for_snapshot_complete(snapshot_id, timeout_sec=900):
     while not is_snapshot_complete(snapshot):
         time.sleep(2)
         if time.time() - start > timeout_sec:
-            raise Exception("Failed waiting for status 'completed' for " +
-                            snapshot_id + " (timeout: " + str(timeout_sec) + ")")
+            raise Exception(
+                "Failed waiting for status 'completed' for "
+                + snapshot_id
+                + " (timeout: "
+                + str(timeout_sec)
+                + ")"
+            )
         resp = ec2().describe_snapshots(SnapshotIds=[snapshot_id])
         if "Snapshots" in resp:
-            snapshot = resp['Snapshots'][0]
+            snapshot = resp["Snapshots"][0]
+
 
 def is_snapshot_complete(snapshot):
-    return snapshot is not None and 'State' in snapshot and \
-        snapshot['State'] == 'completed'
+    return (
+        snapshot is not None
+        and "State" in snapshot
+        and snapshot["State"] == "completed"
+    )
 
 
 def attach_volume(volume_id, device_path):
     instance_id = info().instance_id()
-    ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id,
-                        Device=device_path)
+    ec2().attach_volume(VolumeId=volume_id, InstanceId=instance_id, Device=device_path)
     wait_for_volume_status(volume_id, "attached")
     info().clear_cache()
 
+
 def delete_on_termination(device_path):
     instance_id = info().instance_id()
-    ec2().modify_instance_attribute(InstanceId=instance_id,
-                                    BlockDeviceMappings=[{
-                                        "DeviceName": device_path,
-                                        "Ebs": {"DeleteOnTermination": True}}])
+    ec2().modify_instance_attribute(
+        InstanceId=instance_id,
+        BlockDeviceMappings=[
+            {"DeviceName": device_path, "Ebs": {"DeleteOnTermination": True}}
+        ],
+    )
+
 
 def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=False):
     instance_id = info().instance_id()
@@ -329,8 +466,14 @@ def detach_volume(mount_path=None, device=None, volume_id=None, delete_volume=Fa
             wait_for_volume_status(volume_id, "available")
             ec2().delete_volume(VolumeId=volume_id)
     else:
-        raise Exception("Failed to resolve volume id for mount path: " + str(mount_path) + " device: " + str(device))
+        raise Exception(
+            "Failed to resolve volume id for mount path: "
+            + str(mount_path)
+            + " device: "
+            + str(device)
+        )
     info().clear_cache()
+
 
 def volume_info(mount_path=None, device=None, volume_id=None):
     if mount_path and not (device or volume_id):
@@ -344,7 +487,13 @@ def volume_info(mount_path=None, device=None, volume_id=None):
         if "Volumes" in res and res["Volumes"]:
             return res["Volumes"][0]
     else:
-        raise Exception("Failed to resolve volume id for mount path: " + str(mount_path) + " device: " + str(device))
+        raise Exception(
+            "Failed to resolve volume id for mount path: "
+            + str(mount_path)
+            + " device: "
+            + str(device)
+        )
+
 
 def volume_id_from_device(device):
     volume_id = None
@@ -359,21 +508,35 @@ def volume_id_from_device(device):
                 break
     else:
         instance_id = info().instance_id()
-        volume = ec2().describe_volumes(Filters=[{"Name": "attachment.device",
-                                                    "Values": [device]},
-                                                    {"Name": "attachment.instance-id",
-                                                    "Values": [instance_id]}])
-        volume_id = volume['Volumes'][0]['VolumeId']
+        volume = ec2().describe_volumes(
+            Filters=[
+                {"Name": "attachment.device", "Values": [device]},
+                {"Name": "attachment.instance-id", "Values": [instance_id]},
+            ]
+        )
+        volume_id = volume["Volumes"][0]["VolumeId"]
     return volume_id
 
-def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},
-                    copytags=[], ignore_missing_copytags=False):
-    create_tags = _create_tag_array(tag_key, tag_value, tags, copytags,
-                                    ignore_missing_copytags=ignore_missing_copytags)
+
+def create_snapshot(
+    tag_key,
+    tag_value,
+    mount_path,
+    wait=False,
+    tags={},
+    copytags=[],
+    ignore_missing_copytags=False,
+):
+    create_tags = _create_tag_array(
+        tag_key,
+        tag_value,
+        tags,
+        copytags,
+        ignore_missing_copytags=ignore_missing_copytags,
+    )
     device = device_from_mount_path(mount_path)
-    with open(os.devnull, 'w') as devnull:
-        subprocess.call(["sync", mount_path[0]], stdout=devnull,
-                        stderr=devnull)
+    with open(os.devnull, "w") as devnull:
+        subprocess.call(["sync", mount_path[0]], stdout=devnull, stderr=devnull)
     volume_id = None
     if "/nvme" in device:
         proc = Popen(["nvme", "id-ctrl", device], stdout=PIPE, stderr=PIPE)
@@ -386,27 +549,38 @@ def create_snapshot(tag_key, tag_value, mount_path, wait=False, tags={},
                 break
     else:
         instance_id = info().instance_id()
-        volume = ec2().describe_volumes(Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}])
-        for volume in volume['Volumes']:
-            if volume['Attachments'][0]['Device'] == device:
-                volume_id = volume['VolumeId']
+        volume = ec2().describe_volumes(
+            Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}]
+        )
+        for volume in volume["Volumes"]:
+            if volume["Attachments"][0]["Device"] == device:
+                volume_id = volume["VolumeId"]
     if volume_id:
         snap = ec2().create_snapshot(VolumeId=volume_id)
-        ec2().create_tags(Resources=[snap['SnapshotId']], Tags=create_tags)
+        ec2().create_tags(Resources=[snap["SnapshotId"]], Tags=create_tags)
     else:
         raise Exception("Could not find volume for " + mount_path + "(" + device + ")")
     if wait:
-        wait_for_snapshot_complete(snap['SnapshotId'])
-    return snap['SnapshotId']
+        wait_for_snapshot_complete(snap["SnapshotId"])
+    return snap["SnapshotId"]
 
 
-def tag_volume(volume, tag_key, tag_value, tags, copytags, ignore_missing_copytags=False):
-    tag_array = _create_tag_array(tag_key, tag_value, tags, copytags,
-                                  ignore_missing_copytags=ignore_missing_copytags)
+def tag_volume(
+    volume, tag_key, tag_value, tags, copytags, ignore_missing_copytags=False
+):
+    tag_array = _create_tag_array(
+        tag_key,
+        tag_value,
+        tags,
+        copytags,
+        ignore_missing_copytags=ignore_missing_copytags,
+    )
     ec2().create_tags(Resources=[volume], Tags=tag_array)
 
 
-def _create_tag_array(tag_key, tag_value, tags={}, copytags=[], ignore_missing_copytags=False):
+def _create_tag_array(
+    tag_key, tag_value, tags={}, copytags=[], ignore_missing_copytags=False
+):
     if copytags:
         for tag in copytags:
             if info().tag(tag):
@@ -417,15 +591,15 @@ def _create_tag_array(tag_key, tag_value, tags={}, copytags=[], ignore_missing_c
     if not tags:
         tags = {}
     tags[tag_key] = tag_value
-    tags['Name'] = tag_value
+    tags["Name"] = tag_value
     for key, value in list(tags.items()):
         if not key.startswith("aws:"):
-            create_tags.append({'Key': key, 'Value': value})
+            create_tags.append({"Key": key, "Value": value})
     return create_tags
 
 
 def map_local_device(volume, device):
-    if os.path.exists(device) or sys.platform.startswith('win'):
+    if os.path.exists(device) or sys.platform.startswith("win"):
         return device
     vol2 = volume.replace("-", "")
     proc = Popen(["lsblk", "-lnpo", "NAME"], stdout=PIPE, stderr=PIPE)
@@ -441,13 +615,13 @@ def map_local_device(volume, device):
 
 
 def device_from_mount_path(mount_path):
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith("win"):
         disk = disk_by_drive_letter(mount_path[0])
-        if disk['TargetId'] != 0:
-            return "/dev/xvd" + target_id_to_letter(disk['TargetId'])
+        if disk["TargetId"] != 0:
+            return "/dev/xvd" + target_id_to_letter(disk["TargetId"])
         else:
-            disk = wmic_disk_with_disk_number(disk['DiskNumber'])
-            volume = disk['SerialNumber'].split("_")[0]
+            disk = wmic_disk_with_disk_number(disk["DiskNumber"])
+            volume = disk["SerialNumber"].split("_")[0]
             if "-" not in volume:
                 volume = volume.replace("vol", "vol-")
             return attached_devices(volume)[0]
@@ -460,71 +634,99 @@ def device_from_mount_path(mount_path):
                 return dev_and_mount[0]
         return None
 
+
 def snapshot_filters(volume_id=None, tag_name=None, tag_value=None):
     if tag_name and not isinstance(tag_name, list):
         tag_name = [tag_name]
     if tag_value and not isinstance(tag_value, list):
         tag_value = [tag_value]
 
-    filters =  [{ 'Name': 'status', 'Values': [ 'completed' ]}]
+    filters = [{"Name": "status", "Values": ["completed"]}]
     if volume_id:
-        filters.append({ 'Name': 'volume-id', 'Values': [volume_id] })
+        filters.append({"Name": "volume-id", "Values": [volume_id]})
     if tag_name and tag_value:
-        filters.append({ 'Name': 'tag:' + tag_name[0], 'Values': tag_value })
+        filters.append({"Name": "tag:" + tag_name[0], "Values": tag_value})
     elif tag_name:
-        filters.append({ 'Name': 'tag-key', 'Values': tag_name})
+        filters.append({"Name": "tag-key", "Values": tag_name})
     elif tag_value:
-        filters.append({ 'Name': 'tag-value', 'Values': tag_value})
+        filters.append({"Name": "tag-value", "Values": tag_value})
     return filters
+
 
 def clean_snapshots(days, tags, dry_run=False):
     newest_timestamp = datetime.utcnow() - timedelta(days=days)
-    newest_timestamp = newest_timestamp .replace(tzinfo=tz.UTC)
+    newest_timestamp = newest_timestamp.replace(tzinfo=tz.UTC)
     filters = snapshot_filters(tag_value=tags)
     for snapshot in ec2_resource().snapshots.filter(Filters=filters):
         tags = {}
         for tag in snapshot.tags:
-            tags[tag['Key']] = tag['Value']
+            tags[tag["Key"]] = tag["Value"]
         print_time = snapshot.start_time.replace(tzinfo=tz.tzlocal()).timetuple()
         compare_time = snapshot.start_time.replace(tzinfo=tz.UTC)
         if compare_time < newest_timestamp:
-            print(colored("Deleting " + snapshot.id, "yellow") +
-                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S", print_time) +
-                  " || " + json.dumps(tags))
+            print(
+                colored("Deleting " + snapshot.id, "yellow")
+                + " || "
+                + time.strftime("%a, %d %b %Y %H:%M:%S", print_time)
+                + " || "
+                + json.dumps(tags)
+            )
             try:
                 if not dry_run:
                     delete_object(snapshot)
                     time.sleep(0.3)
             except ClientError as err:
-                print(colored("Delete failed: " +
-                              err.response['Error']['Message'], "red"))
+                print(
+                    colored("Delete failed: " + err.response["Error"]["Message"], "red")
+                )
         else:
-            print(colored("Skipping " + snapshot.id, "cyan") +
-                  " || " + time.strftime("%a, %d %b %Y %H:%M:%S", print_time) +
-                  " || " + json.dumps(tags))
+            print(
+                colored("Skipping " + snapshot.id, "cyan")
+                + " || "
+                + time.strftime("%a, %d %b %Y %H:%M:%S", print_time)
+                + " || "
+                + json.dumps(tags)
+            )
 
 
 # By default: 2 days of ten minutely, 7 days of hourly, 30 days of daily
 # ~3 months of weekly, 6 months of monthly and 3 years of yearly
 # 6*24*2 + 24*(7-2) + 30- 7+ + 6-1 + 2 = 438 snapshots
-def prune_snapshots(volume_id=None, tag_name=None, tag_value=None,
-                    ten_minutely=288, hourly=168, daily=30,
-                    weekly=13, monthly=6, yearly=3, dry_run=False):
-    filters = snapshot_filters(volume_id=volume_id, tag_name=tag_name,
-                               tag_value=tag_value)
+def prune_snapshots(
+    volume_id=None,
+    tag_name=None,
+    tag_value=None,
+    ten_minutely=288,
+    hourly=168,
+    daily=30,
+    weekly=13,
+    monthly=6,
+    yearly=3,
+    dry_run=False,
+):
+    filters = snapshot_filters(
+        volume_id=volume_id, tag_name=tag_name, tag_value=tag_value
+    )
     time_func = lambda snapshot: snapshot.start_time
-    snapshots = sorted([s for s in ec2_resource().snapshots.filter(Filters=filters)],
-                       key=time_func, reverse=True)
-    keep, snapshots_to_delete = prune_array(snapshots,
-                                            time_func,
-                                            lambda snapshot: snapshot.volume_id,
-                                            ten_minutely=ten_minutely,
-                                            hourly=hourly,
-                                            daily=daily,
-                                            weekly=weekly,
-                                            yearly=yearly)
-    delete_selected(snapshots, snapshots_to_delete, name_for_snap, time_func,
-                    dry_run=dry_run)
+    snapshots = sorted(
+        [s for s in ec2_resource().snapshots.filter(Filters=filters)],
+        key=time_func,
+        reverse=True,
+    )
+    keep, snapshots_to_delete = prune_array(
+        snapshots,
+        time_func,
+        lambda snapshot: snapshot.volume_id,
+        ten_minutely=ten_minutely,
+        hourly=hourly,
+        daily=daily,
+        weekly=weekly,
+        yearly=yearly,
+    )
+    delete_selected(
+        snapshots, snapshots_to_delete, name_for_snap, time_func, dry_run=dry_run
+    )
+
 
 def name_for_snap(snap):
     for tag in snap.tags:

@@ -1,5 +1,6 @@
 from hashlib import md5
 
+
 def _to_bytes(data):
     ret = data
     encode_method = getattr(data, "encode", None)
@@ -7,11 +8,13 @@ def _to_bytes(data):
         ret = data.encode("utf-8")
     return bytes(ret)
 
+
 def hashed_word(source):
     hash = md5()
     hash.update(_to_bytes(source))
     word = words[int(hash.hexdigest(), 16) % len(words)]
     return word
+
 
 words = [
     "abed",

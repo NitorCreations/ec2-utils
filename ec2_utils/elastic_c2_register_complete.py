@@ -1,9 +1,10 @@
 from __future__ import print_function
 
+
 def main():
-    """Print out shell function and command to register ndt command completion
-    """
-    print("""_ec2_complete() {
+    """Print out shell function and command to register ndt command completion"""
+    print(
+        """_ec2_complete() {
     local IFS=$'\\013'
     local COMP_CUR="${COMP_WORDS[COMP_CWORD]}"
     local COMP_PREV="${COMP_WORDS[COMP_CWORD-1]}"
@@ -29,8 +30,11 @@ def main():
     fi
 }
 complete -o nospace -F _ec2_complete "ec2"
-""", end="")
+""",
+        end="",
+    )
     return
+
 
 if __name__ == "__main__":
     main()
