@@ -27,7 +27,7 @@ jmespath==0.10.0
     #   boto3
     #   botocore
     #   ec2-utils (setup.py)
-netifaces==0.11.0
+netifaces2==0.0.22
     # via ec2-utils (setup.py)
 py==1.10.0
     # via retry
